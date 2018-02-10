@@ -73,9 +73,12 @@ def thd(x,nAvg,fs=16384,N=5):
 	print('Measured THD with {} harmonics is {}%'.format(N, 1e2*thd))
 
 	fig, ax = plt.subplots(1,1,figsize=(12,8))
-	ax.loglog(ff, Pxx, rasterized=True, alpha=0.6, label='Measurement', color='xkcd:olive green')
-	ax.loglog(ff_pk[0],Pxx_pk[0],'o',markersize=20,alpha=0.6,fillstyle='none', label='Fundamental', color='xkcd:blood')
-	ax.loglog(ff_pk[1:],Pxx_pk[1:],'o',markersize=20,alpha=0.6,fillstyle='none',label='Harmonics', color='xkcd:sky blue')
+	#ax.loglog(ff, Pxx, rasterized=True, alpha=0.6, label='Measurement', color='xkcd:olive green')
+	#ax.loglog(ff_pk[0],Pxx_pk[0],'o',markersize=20,alpha=0.6,fillstyle='none', label='Fundamental', color='xkcd:blood')
+	#ax.loglog(ff_pk[1:],Pxx_pk[1:],'o',markersize=20,alpha=0.6,fillstyle='none',label='Harmonics', color='xkcd:sky blue')
+	ax.semilogy(ff, Pxx, rasterized=True, alpha=0.6, label='Measurement', color='xkcd:olive green')
+	ax.semilogy(ff_pk[0],Pxx_pk[0],'o',markersize=20,alpha=0.6,fillstyle='none', label='Fundamental', color='xkcd:blood',linewidth=3)
+	ax.semilogy(ff_pk[1:],Pxx_pk[1:],'o',markersize=20,alpha=0.6,fillstyle='none',label='Harmonics', color='xkcd:sky blue', linewidth=3)
 	ax.grid('on',which='both',linestyle='--',alpha=0.4)
 	ax.legend(loc='best')
 	ax.set_xlabel('Frequency [Hz]')
@@ -89,7 +92,8 @@ def main():
 	#fs = 16384
 	#Downsample for speed
 	fs = 16384/8
-	a,b = thd(f['data'][::8],10, N=8, fs=fs)
+	x = sig.decimate(f['data'][:], 8, zero_phase=True)
+	a,b = thd(x,10, N=8, fs=fs)
 	return
 
 if __name__ == "__main__":

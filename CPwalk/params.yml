@@ -1,0 +1,30 @@
+#Option to download data or use ascii file
+downloadData: False
+
+#Data channels - by default, ITMX CP PIT and YAW, ITMY CP PIT and YAW, and all OAF BLRMS
+chans: ['L1:SUS-ITMY_R0_OPTICALIGN_P_OFFSET','L1:SUS-ITMY_R0_OPTICALIGN_Y_OFFSET','L1:OAF-RANGE_RLP_1_OUT16','L1:OAF-RANGE_RLP_2_OUT16','L1:OAF-RANGE_RLP_8_OUT16','L1:OAF-RANGE_RLP_3_OUT16','L1:OAF-RANGE_RLP_4_OUT16']
+tStart: 1158903857
+tStop: 1158903857
+
+#Otherwise use a file with the data already downloaded. Set downloadData accordingly
+dataFileName: 'CP_OFFSETS_BLRMS.txt'
+
+#Optic 
+optic: 'ITMY'
+
+#Interpolation limits
+pitMin: -300
+yawMin: -500
+pitMax: 300
+yawMax: 500
+
+#Interpolation prefs
+interpFunc: 'Rbf'       #Use 'Rbf' for scipy.interpolate.Rbf, and 'griddata' for scipy.interpolate.griddata
+interpMethod: 'linear'  #Linear is the only one that guarantees positive values for the interpolated function
+interpPts: 500          #Computation time scales exponentially with this so avoid unnecessarily fine grid
+
+#Plotting preferences
+legends: ['20-29 Hz','38-60Hz','60-100 Hz','100-450 Hz','10-20 Hz']
+plotPoints: False #Plot the measured data point locations with which interpolation is done
+plotHull: True    #Plot the convex hull, which is really the only region in which the INTERPOLATION is valid
+saveFig: True

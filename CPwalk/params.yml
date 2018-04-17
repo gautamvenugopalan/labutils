@@ -10,7 +10,7 @@ tStop: 1158903857
 dataFileName: 'CP_OFFSETS_BLRMS.txt'
 
 #Optic 
-optic: 'ITMY'
+optic: 'ITMX'
 
 #Interpolation limits
 pitMin: -300
@@ -19,7 +19,7 @@ pitMax: 300
 yawMax: 500
 
 #Interpolation prefs
-interpFunc: 'Rbf'       #Use 'Rbf' for scipy.interpolate.Rbf, and 'griddata' for scipy.interpolate.griddata
+interpFunc: 'griddata'       #Use 'Rbf' for scipy.interpolate.Rbf, and 'griddata' for scipy.interpolate.griddata
 interpMethod: 'linear'  #Linear is the only one that guarantees positive values for the interpolated function
 interpPts: 500          #Computation time scales exponentially with this so avoid unnecessarily fine grid
 

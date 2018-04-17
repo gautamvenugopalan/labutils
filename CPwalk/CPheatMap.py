@@ -147,8 +147,8 @@ def shapeData(data, params):
 
 	z = np.zeros([nChans, np.shape(Pindex)[0]-1])
 	PIT = np.zeros([nChans, np.shape(Pindex)[0]-1])
-	#YAW = np.zeros([nChans, np.shape(Yindex)[0]])
-	YAW = np.zeros([nChans, np.shape(Yindex)[0]-1])
+	YAW = np.zeros([nChans, np.shape(Yindex)[0]])
+	#YAW = np.zeros([nChans, np.shape(Yindex)[0]-1])
 	
 	#Seems like some DQ check was required to avoid negative BLRMS values, not sure if this is still needed
 	for kk in range(nChans):

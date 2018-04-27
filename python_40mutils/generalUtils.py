@@ -32,7 +32,7 @@ def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25)):
 	conn = nds2.connection('nds40.ligo.caltech.edu', 31200)
 	print('Getting NDS data')
 	dat = conn.fetch(tStart, tStop, channel)
-	print('Got NDS data, now making plot')
+	print('Got NDS data...')
 	Fs = dat[0].channel.sample_rate
 	ff, tt, Sxx = sig.spectrogram(dat[0].data,fs=Fs,nperseg=int(t_fft*Fs),window=win)
 	return ff, tt, Sxx

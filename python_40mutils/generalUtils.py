@@ -5,6 +5,7 @@ import sys, os, subprocess
 import numpy as np
 import scipy.signal as sig
 import nds2
+from matplotlib.ticker import FormatStrFormatter
 
 def tarballz(outFile, fileList):
 	'''
@@ -77,7 +78,7 @@ def plotSpec(ff,ax,col=[1],doFormat=False,xlabel='Frequency [Hz]',ylabel='$\math
 		ax.grid('on', which='both', linestyle='--',alpha=0.4)
 	return
 
-def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='',**kwargs):
+def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='Magnitude [dB]',**kwargs):
 	'''
 	Function for plotting a transfer function from SR785 or AG4395 or modeling.
 	Input has to be a 3 column file, with first column frequency.
@@ -101,6 +102,7 @@ def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='',**kwargs):
 		axPh.set_ylabel('Phase [degrees]')
 		axPh.set_xlabel('Frequency [Hz]')
 		axPh.set_yticks(np.linspace(-180,180,10))
+		axPh.yaxis.set_major_formatter(FormatStrFormatter("%2d"))
 		axMag.grid('on',which='both',linestyle='--',alpha=0.4)
 		axPh.grid('on',which='both',linestyle='--',alpha=0.4)
 	return

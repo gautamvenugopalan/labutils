@@ -7,6 +7,20 @@ import scipy.signal as sig
 import nds2
 from matplotlib.ticker import FormatStrFormatter
 
+def fq2reim(f0,q):
+	'''
+	Function that converts f0/q pole/zero to ReIm representation.
+	Example usage:
+		poles_cplx = fq2reim(f0,Q)
+	will return an array of complex pole pairs (s-plane) 
+	corresponding to the inputs f0 (in Hz) and Q.
+	'''
+	b = -1j * f0 / q
+	c = -1. * f0**2
+	pp = -(b/2) + 0.5*np.sqrt(b**2 - 4*c)
+	pn = -(b/2) - 0.5*np.sqrt(b**2 - 4*c)
+	return np.squeeze((-2 * np.pi / 1j)*np.array([pp,pn]))
+
 def tarballz(outFile, fileList):
 	'''
 	Function to make a tarball of files in fileList.

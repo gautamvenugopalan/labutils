@@ -81,9 +81,15 @@ def plotSpec(ff,ax,col=[1],doFormat=False,xlabel='Frequency [Hz]',ylabel='$\math
 	'''
 	Function for plotting a spectrum from SR785 or AG4395.
 	Expects column 0 to be frequency, column 1/2 to be Vrms/rtHz.
-	Plotting arguments, e.g. color, are passed as **kwargs
+	Plotting arguments, e.g. color, are passed as **kwargs.
+	First argument is either a file name (to a file downloaded from SR785/AG4395)
+	or an array of 2 or 3 columns, with the first being frequency.
 	'''
-	dat = np.loadtxt(ff)
+	try:
+		dat = np.loadtxt(ff)
+	except:
+		dat=ff
+	
 	for ii in col:
 		ax.loglog(dat[:,0],dat[:,int(ii)],**kwargs)
 	if doFormat:
@@ -97,8 +103,14 @@ def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='Magnitude [dB]'
 	Function for plotting a transfer function from SR785 or AG4395 or modeling.
 	Input has to be a 3 column file, with first column frequency.
 	Plotting arguments, e.g. color, are passed as **kwargs
+	First argument is either a file name (to a file downloaded from SR785/AG4395)
+	or an array of 3 columns, [freq,mag,phase].
 	'''
-	dat = np.loadtxt(ff)
+	try:
+		dat = np.loadtxt(ff)
+	except:
+		dat = ff
+
 	if cols=='dbdeg':
 		axMag.semilogx(dat[:,0],dat[:,1],**kwargs)
 		axPh.semilogx(dat[:,0], dat[:,2],**kwargs)

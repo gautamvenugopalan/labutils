@@ -129,6 +129,6 @@ def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='Magnitude [dB]'
 		axPh.set_xlabel('Frequency [Hz]')
 		axPh.set_yticks(np.linspace(-180,180,10))
 		axPh.yaxis.set_major_formatter(FormatStrFormatter("%2d"))
-		axMag.grid('on',which='both',linestyle='--',alpha=0.4)
-		axPh.grid('on',which='both',linestyle='--',alpha=0.4)
+		axMag.grid(True,which='both',linestyle='--',alpha=0.4)
+		axPh.grid(True,which='both',linestyle='--',alpha=0.4)
 	return

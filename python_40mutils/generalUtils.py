@@ -77,13 +77,14 @@ def cum_rms(ff, asd):
 		cum_ms[ii] = np.trapz(asd[ii:]**2, ff[ii:])
 	return cum_ms**0.5
 
-def plotSpec(ff,ax,col=[1],doFormat=False,xlabel='Frequency [Hz]',ylabel='$\mathrm{V_{rms}}/\sqrt{\mathrm{Hz}}$',**kwargs):
+def plotSpec(ff,ax,col=[1],scale=1,doFormat=False,xlabel='Frequency [Hz]',ylabel='$\mathrm{V_{rms}}/\sqrt{\mathrm{Hz}}$',**kwargs):
 	'''
 	Function for plotting a spectrum from SR785 or AG4395.
 	Expects column 0 to be frequency, column 1/2 to be Vrms/rtHz.
 	Plotting arguments, e.g. color, are passed as **kwargs.
 	First argument is either a file name (to a file downloaded from SR785/AG4395)
 	or an array of 2 or 3 columns, with the first being frequency.
+	Option to scale all y-axis values by some fixed number
 	'''
 	try:
 		dat = np.loadtxt(ff)
@@ -91,7 +92,7 @@ def plotSpec(ff,ax,col=[1],doFormat=False,xlabel='Frequency [Hz]',ylabel='$\math
 		dat=ff
 	
 	for ii in col:
-		ax.loglog(dat[:,0],dat[:,int(ii)],**kwargs)
+		ax.loglog(dat[:,0],dat[:,int(ii)]*scale,**kwargs)
 	if doFormat:
 		ax.set_xlabel(xlabel)
 		ax.set_ylabel(ylabel)

@@ -6,6 +6,7 @@ import os
 import nds2
 import scipy.io as scio
 import noisesub as n
+import readFotonFilterFile
 
 nds_server = 'nds40.ligo.caltech.edu'
 nds_port = 31200
@@ -89,34 +90,6 @@ def bode_plot(ff, tfObj):
     axPha.set_xlabel('Frequency [Hz]')
     return h, axMag, axPha
 
-def get_med_asds(TSobj, fftlength=10, overlap=5, method='welch', window='hann',
-               binNum=None, zpk=None, fullOutput=False, **kwargs):
-    '''
-    Takes a GWpy timeseries object and returns 10, 50, and 90 percentile ASDs.
-    Optional logarithmic rebinning.
-
-    '''
-    myspec = (TSobj.spectrogram(fftlength, fftlength=fftlength, overlap=overlap, window=window))**0.5
-    if zpk != None:
-        myspec = myspec.zpk(*zpk)
-    ff = np.arange(0, len(myspec.value[0])) * myspec.df.value + myspec.f0.value
-    myspecdata = np.copy(myspec.value)
-    myspecdata2 = myspecdata
-    myASD10 = np.percentile(myspecdata2, 10, axis=0)/np.sqrt(np.log(2))
-    myASD50 = np.percentile(myspecdata2, 50, axis=0)/np.sqrt(np.log(2))
-    myASD90 = np.percentile(myspecdata2, 90, axis=0)/np.sqrt(np.log(2))
-    myASDMean = np.sqrt(np.mean(myspecdata2**2, axis=0))
-    if binNum != None:
-        ff = logbin(ff, binNum)
-        myASD10 = logbin(myASD10, binNum)
-        myASD50 = logbin(myASD50, binNum)
-        myASD90 = logbin(myASD90, binNum)
-        myASDMean = logbin(myASDMean, binNum)
-    if fullOutput==False:
-        return ff, myASD10, myASD50, myASD90, myASDMean
-    else:
-        return ff, myASD10, myASD50, myASD90, myASDMean, myspecdata2
-
 def aa_16k(ff):
     # coefficients for the 16 kHz IIR filtering
     g = 0.014805052402446
@@ -178,65 +151,14 @@ def freqresp(zpkTup, ff):
     _, tf = sig.freqresp((-2*np.pi*zArr, -2*np.pi*pArr,
         k*np.prod(-2*np.pi*pArr)/np.prod(-2*np.pi*zArr)), w=2*np.pi*ff)
     return ff, tf
-'''
-def get_ifo_data(channel, start, stop, savedir, full_output=False, **kwargs):
-    savechan = channel.split(':')[1]
-    savetime = start.replace(':', '').replace(' ', '_')
-    savepath = savedir+savechan+'_'+savetime+'.txt'
-    if os.path.isfile(savepath):
-        print('Loading {}'.format(savepath))
-        ff, asd_10, asd_50, asd_90, asd_mean = np.loadtxt(savepath, unpack=1)
-    else:
-        print('I did not find saved data at {}. Fetching data from NDS...'.format(savepath))
-        data_ts = TimeSeries.fetch(channel, start, stop, verbose=True,
-                host=nds_server, port=31200)
-        print('Making ASDs...')
-        ff, asd_10, asd_50, asd_90, asd_mean = get_med_asds(data_ts, **kwargs)
-        header = channel+'\nData from {} to {}\n'.format(start, stop) \
-                + 'Mean: {:.3g} \n'.format(data_ts.mean()) \
-                + '\t'.join(['Frequency [Hz]',
-                        '10th percentile ASD',
-                        '50th percentile ASD',
-                        '90th percentile ASD',
-                        'Mean ASD',
-                            ])
-        # Undo the aa filter, if desired
-        if 'aa' in kwargs.keys():
-            print('Undoing AA filter...')
-            if kwargs['aa'] == '16k':
-                asd_10 /= np.abs(aa_16k(ff))
-                asd_50 /= np.abs(aa_16k(ff))
-                asd_90 /= np.abs(aa_16k(ff))
-                asd_mean /= np.abs(aa_16k(ff))
-            else:
-                print('Got unknown value for "aa" keyword.')
-        if 'calibration' in kwargs.keys():
-            print('Applying calibration...')
-            cal_interp = np.interp(ff, *kwargs['calibration'])
-            asd_10 *= cal_interp
-            asd_50 *= cal_interp
-            asd_90 *= cal_interp
-            asd_mean *= cal_interp
-        np.savetxt(savepath,
-                np.c_[ff,
-                      asd_10,
-                      asd_50,
-                      asd_90,
-                      asd_mean,
-                      ],
-                header=header)
-    if full_output == True:
-        return ff, asd_10, asd_50, asd_90, asd_mean
-    else:
-        return ff, asd_50
-'''
+
 def get_noise_coupling(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, quiet_stop,
         proj_start, proj_stop, stim_name, resp_name, savedir, full_output=False, **kwargs):
     savepath = '_'.join([savedir, stim_name, resp_name, 'coupling']) + '.txt'
     if os.path.isfile(savepath):
         f_coup, coup_asd = np.loadtxt(savepath, unpack=1)
     else:
-        f_proj, proj_asd = get_ifo_data(stim_chan, proj_start, proj_stop, savedir)
+        f_proj, proj_asd = get_ifo_data_nds(stim_chan, proj_start, proj_stop, savedir)
         f_tf, tf = get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, quiet_stop,
                 stim_name, resp_name, savedir)
         if not np.array_equal(f_proj, f_tf):
@@ -249,7 +171,6 @@ def get_noise_coupling(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, q
             #f_coup = f_coup
             coup_asd = coup_asd*mask
     return f_coup, coup_asd
-
 '''
 # Generate paths for stimulus/response channel TF, and coupling ASD
 savepath_base = '_'.join([stim_name, resp_name, 'coupling', inj_start.replace(' ', '_').replace(':', '')])
@@ -322,41 +243,37 @@ else:
     coupling = stim_quiet_asd_50 * tf
     np.savetxt(savepath_tf, np.c_[ff, whitenoise_tf])
     np.savetxt(savepath_asd, np.c_[ff, coupling])
-if full_output == True:
-    return ff, coupling, f_tf, tf
-else:
-    return ff, coupling
+	if full_output == True:
+    	return ff, coupling, f_tf, tf
+	else:
+    	return ff, coupling
+'''
+def medianASD(x, w=('tukey',0.25), fs=2**14, fftLen=8, correction=True, oneSide=True):
+	ff,tt,Pxx = sig.spectrogram(x,fs=fs,window=w,nperseg=fftLen*fs,mode='psd',return_onesided=oneSide)
+	mASD = np.median(np.sqrt(Pxx),1)
+	if correction:
+		mASD = mASD / np.sqrt(np.log(2))
+	return ff, mASD
 
 
-def get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, quiet_stop,
-        stim_name, resp_name, savedir):
-    savepath_base = savedir + '_'.join([stim_name, resp_name, 'whitenoise_tf', inj_start.replace(' ', '_').replace(':', '')])
+def get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, quiet_stop,stim_name, resp_name, savedir):
+    savepath_base = savedir + '_'.join([stim_name, resp_name, 'whitenoise_tf'])
     savepath_data = savepath_base + '.txt'
-    savepath_fig = 'Figures/' + savepath_base + '.pdf'
+    savepath_fig = savepath_base + '.pdf'
     if os.path.isfile(savepath_data):
         print('Loading locally saved coupling TF...')
         return np.loadtxt(savepath_data, unpack=1)
     else:
         print('I did not find a saved TF at {}. Getting data from NDS instead.'.format(savepath_data))
         print('Trying to fetch {} and {} from {} to {}'.format(stim_chan, resp_chan, inj_start, inj_stop))
-        inj_ts_dict = TimeSeriesDict.fetch([stim_chan, resp_chan], inj_start, inj_stop,
-                host=nds_server, port=nds_port, verbose=True)
+        conn = nds2.connection(nds_server, nds_port)
+        inj_data = conn.fetch(inj_start, inj_stop, [stim_chan, resp_chan])
         print('Trying to fetch {} and {} from {} to {}'.format(stim_chan, resp_chan, quiet_start, quiet_stop))
-        quiet_ts_dict = TimeSeriesDict.fetch([stim_chan, resp_chan], quiet_start, quiet_stop,
-                host=nds_server, port=nds_port, verbose=True)
-        f_stim, stim_inj_asd_10, stim_inj_asd_50, stim_inj_asd_90, stim_inj_asd_mean = \
-                get_med_asds(inj_ts_dict[stim_chan], fftlength=10, overlap=5, method='welch',
-                        window='hann', binNum=10000)
-        f_resp, resp_inj_asd_10, resp_inj_asd_50, resp_inj_asd_90, resp_inj_asd_mean = \
-                get_med_asds(inj_ts_dict[resp_chan], fftlength=10, overlap=5, method='welch',
-                        window='hann', binNum=10000)
-        _, stim_quiet_asd_10, stim_quiet_asd_50, stim_quiet_asd_90, stim_quiet_asd_mean = \
-                get_med_asds(quiet_ts_dict[stim_chan], fftlength=10, overlap=5, method='welch',
-                        window='hann', binNum=10000)
-        _, resp_quiet_asd_10, resp_quiet_asd_50, resp_quiet_asd_90, resp_quiet_asd_mean = \
-                get_med_asds(quiet_ts_dict[resp_chan], fftlength=10, overlap=5, method='welch',
-                        window='hann', binNum=10000)
-        print(np.any([f_resp != f_stim]))
+        quiet_data = conn.fetch(quiet_start, quiet_stop, [stim_chan, resp_chan])
+        f_stim, stim_inj_asd_50 = medianASD(inj_data[0].data)
+        f_resp, resp_inj_asd_50 = medianASD(inj_data[1].data)
+        f_quiet, stim_quiet_asd_50 = medianASD(quiet_data[0].data)
+        f_quiet, resp_quiet_asd_50 = medianASD(quiet_data[1].data)
         if np.any([f_resp != f_stim]):
             if f_resp[-1] > f_stim[-1]:
                 print('Interpolating response ASD...')
@@ -372,6 +289,7 @@ def get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, qu
                 ff = f_resp
         else:
             ff = f_resp
+        
         print('Plotting white noise TF from {} to {}'.format(stim_name, resp_name))
         h_whitenoise = plt.figure()
         ax_stim = h_whitenoise.add_subplot(211)
@@ -393,11 +311,10 @@ def get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, qu
         h_whitenoise.tight_layout()
         h_whitenoise.savefig(savepath_fig)
         print('Saving white noise TF data...')
-        whitenoise_tf = np.sqrt(np.abs(resp_inj_asd_50**2-resp_quiet_asd_50**2) /
-                np.abs(stim_inj_asd_50**2-stim_quiet_asd_50**2))
+        whitenoise_tf = np.sqrt(np.abs(resp_inj_asd_50**2-resp_quiet_asd_50**2)/np.abs(stim_inj_asd_50**2-stim_quiet_asd_50**2))
         np.savetxt(savepath_data, np.c_[ff, whitenoise_tf])
-        return ff, whitenoise_tf
-'''
+    return ff, whitenoise_tf
+
 def cum_rms(ff, asd):
     df = np.roll(ff, -1) - ff
     df = df[:-1]
@@ -419,28 +336,40 @@ def get_ifo_data_nds(channel, start, stop, **kwargs):
     window = sig.get_window('hanning', int(nperseg))
     ff1, psd = sig.welch(data[0].data, fs, window, int(nperseg))
     return ff1,np.sqrt(psd)
-'''
-def get_OL_coupling(start, stop, chans, cpl_mag, cpl_phase):
-    '''
-'''
-    For estimating the Oplev coupling to a given channel in loop
-'''
-'''
-    cpl_mag = 10.**(cpl_mag/20.0)
-    cpl_phase = np.deg2rad(cpl_phase)
-    cpl_cmplx = cpl_mag * np.exp(1j*cpl_phase)
-    conn = nds2.connection('nds40.ligo.caltech.edu', 31200)#coupling gains to dB
-    data = conn.fetch(start, stop, chans)
-    fs = int(data[1].channel.sample_rate)  #Hz, downsampled everything to this frequency...
-    t_fft = 20
-    nperseg = t_fft*fs
-    window = sig.get_window('hanning', nperseg)
-    pMICH_OL_coh = 0
-    for ii in range(0,np.shape(cpl_cmplx)[0]):
-        ff_temp, psd_temp = sig.welch(data[ii].data,fs, window, int(nperseg))
-        asd_temp = np.sqrt(psd_temp)
-        pMICH_OL_coh += (asd_temp*cpl_cmplx[ii])**2
-        #pMICH_OL_coh += (psd_temp*cpl_cmplx[ii])
-    pMICH_OL_coh = np.sqrt(np.abs(pMICH_OL_coh))
-    return ff_temp, pMICH_OL_coh
-'''
+
+def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarGain):
+	'''
+	ff = frequency vector
+	chans = channels to fetch
+	tStart = start time
+	tStop = stop time
+	opticname = array of optics
+	DoFname = ['PIT','YAW']
+	filtStruct = output of readFotonFilterFile
+	fitls = array of filter that are enabled
+	'''
+	#Load filter coefficients to convert error signal into control sig.
+	filtDict = readFotonFilterFile.readFilterFile(filtFile) 
+	pMICH_OL_coh = 0
+	for ii, opt in enumerate(opticname):
+		for jj, dof in enumerate(DoFname):
+			#Get the DQ-ed error signal
+			if dof=='PIT':
+				chan = 'C1:SUS-'+opt+'_OPLEV_PERROR'
+			else:
+				chan = 'C1:SUS-'+opt+'_OPLEV_YERROR'
+			print('Getting DQ-ed OL error signal {}'.format(chan))
+			ff, dat = get_ifo_data_nds(chan, tStart, tStop)
+			#Next, convert the DQed error signal into the control signal
+			ctrlFilt = np.array([1., 0., 0., 1., 0., 0.])
+			for ii in filts:
+				ctrlFilt = np.vstack((ctrlFilt,filtDict[opt+'_OL_'+dof][ii]['sosCoeffs']))
+			w = 2*np.pi*ff / 2**13 #Normalizing to the Nyquist
+			w,h = sig.sosfreqz(ctrlFilt,w)
+			psd_temp = np.abs(h) * dat * scalarGain
+			TF_temp = np.loadtxt('Data/OL_coupling_TFs/'+opt+'_'+dof+'.txt')
+			TF_temp_mag = np.interp(ff, TF_temp[:,0], np.sqrt(TF_temp[:,1]**2 + TF_temp[:,2]**2))
+			psd_proj = np.sqrt(psd_temp)*TF_temp_mag
+			pMICH_OL_coh += psd_proj**2
+	pMICH_OL_coh = np.sqrt(pMICH_OL_coh)
+	return ff, pMICH_OL_coh

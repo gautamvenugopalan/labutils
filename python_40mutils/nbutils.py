@@ -408,6 +408,6 @@ def TFunc(TF,coh, nAvg=1):
 	'''
 	mag = np.abs(TF)
 	ph = np.angle(TF, deg=True)
-	dMag = mag * 1./(np.abs(coh)*np.sqrt(nAvg))
-	dPhase = np.rad2deg(np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg))
+	dMag = mag * np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg) #Bendat & Piersol Eq 9.90
+	dPhase = np.rad2deg(np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg)) #Bendat & Piersol Eq 9.91, valid only for small magnitude uncertainties!
 	return dMag, dPhase

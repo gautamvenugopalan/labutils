@@ -393,3 +393,21 @@ def readDTTFile(dttFile, Bchan, Achan):
 	TF = dtt['results']['TF'][Achan]['xfer'][ind]
 	coh = dtt['results']['COH'][Achan]['coherence'][ind]
 	return ff, TF, coh
+
+def TFunc(TF,coh, nAvg=1):
+	'''
+	Function that takes in a (complex valued) transfer function
+	and coherence, calculates the uncertainties in mag and phase
+	as per Bendat and Piersol, and makes error bars in magnitude 
+	and phase. 
+	Example usage:
+		dMag, dPhase = TFunc(TF,coh)
+	returns 
+		dMag --- Uncertainty in the TF magnitude [abs]
+		dPhase --- Uncertainty in phase [deg]
+	'''
+	mag = np.abs(TF)
+	ph = np.angle(TF, deg=True)
+	dMag = mag * 1./(np.abs(coh)*np.sqrt(nAvg))
+	dPhase = np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg)
+	return dMag, dPhase

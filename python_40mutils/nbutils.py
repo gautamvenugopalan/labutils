@@ -388,8 +388,8 @@ def readDTTFile(dttFile, Bchan, Achan):
 		coh --- coherence of measurement
 	'''
 	dtt = dtt2hdf.read_diaggui(dttFile)
-	ff = dttFile['results']['TF']['C1:LSC-MICH_EXC']['FHz']
-	ind = dttFile['results']['TF'][Achan]['channelB'].tolist().index(Bchan)
-	TF = dttFile['results']['TF'][Achan]['xfer'][ind]
-	coh = dttFile['results']['COH'][Achan]['coherence'][ind]
+	ind = dtt['results']['TF'][Achan]['channelB'].tolist().index(Bchan)
+	ff = dtt['results']['TF'][Achan]['FHz']
+	TF = dtt['results']['TF'][Achan]['xfer'][ind]
+	coh = dtt['results']['COH'][Achan]['coherence'][ind]
 	return ff, TF, coh

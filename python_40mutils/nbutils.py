@@ -409,5 +409,5 @@ def TFunc(TF,coh, nAvg=1):
 	mag = np.abs(TF)
 	ph = np.angle(TF, deg=True)
 	dMag = mag * 1./(np.abs(coh)*np.sqrt(nAvg))
-	dPhase = np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg)
+	dPhase = np.rad2deg(np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg))
 	return dMag, dPhase

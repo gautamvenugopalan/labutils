@@ -7,6 +7,8 @@ import nds2
 import scipy.io as scio
 import noisesub as n
 import readFotonFilterFile
+import dtt2hdf
+import yaml
 
 nds_server = 'nds40.ligo.caltech.edu'
 nds_port = 31200
@@ -337,7 +339,7 @@ def get_ifo_data_nds(channel, start, stop, **kwargs):
     ff1, psd = sig.welch(data[0].data, fs, window, int(nperseg))
     return ff1,np.sqrt(psd)
 
-def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarGain,k):
+def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarGain):
 	'''
 	ff = frequency vector
 	chans = channels to fetch
@@ -347,7 +349,6 @@ def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarG
 	DoFname = ['PIT','YAW']
 	filtStruct = output of readFotonFilterFile
 	fitls = array of filter that are enabled
-	k = array of coupling TF gains 
 	'''
 	#Load filter coefficients to convert error signal into control sig.
 	filtDict = readFotonFilterFile.readFilterFile(filtFile) 
@@ -365,12 +366,30 @@ def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarG
 			ctrlFilt = np.array([1., 0., 0., 1., 0., 0.])
 			for ii in filts:
 				ctrlFilt = np.vstack((ctrlFilt,filtDict[opt+'_OL_'+dof][ii]['sosCoeffs']))
-			w = np.pi*ff / 2**13 #Normalizing to the Nyquist
+			w = 2*np.pi*ff / 2**13 #Normalizing to the Nyquist
 			w,h = sig.sosfreqz(ctrlFilt,w)
 			psd_temp = np.abs(h) * dat * scalarGain
-			#Model the OL A2L coupling as 1/f**2 with some overall (measured)  gain
-			w_temp, TF_temp_mag = sig.freqs_zpk(np.array([]),np.array([-2*np.pi,-2*np.pi]),k[jj],2*np.pi*ff)
-			psd_proj = np.sqrt(psd_temp)*np.abs(TF_temp_mag)
+			TF_temp = np.loadtxt('Data/OL_coupling_TFs/'+opt+'_'+dof+'.txt')
+			TF_temp_mag = np.interp(ff, TF_temp[:,0], np.sqrt(TF_temp[:,1]**2 + TF_temp[:,2]**2))
+			psd_proj = np.sqrt(psd_temp)*TF_temp_mag
 			pMICH_OL_coh += psd_proj**2
 	pMICH_OL_coh = np.sqrt(pMICH_OL_coh)
 	return ff, pMICH_OL_coh
+
+def readDTTFile(dttFile, Bchan, Achan):
+	'''
+	Function to load a dttFile, extract Transfer Function & Coherence information
+	and return those along with a frequency vector.
+	Example usage:
+		ff, TF, coh = readDTTFile('MICH.xml','C1:LSC-MICH_IN1','C1:LSC-MICH_EXC')
+	returns
+		ff --- Frequency vector in Hz
+		TF --- Complex valued TF from C1:LSC-MICH_EXC to C1:LSC-MICH_IN1
+		coh --- coherence of measurement
+	'''
+	dtt = dtt2hdf.read_diaggui(dttFile)
+	ff = dttFile['results']['TF']['C1:LSC-MICH_EXC']['FHz']
+	ind = dttFile['results']['TF'][Achan]['channelB'].tolist().index(Bchan)
+	TF = dttFile['results']['TF'][Achan]['xfer'][ind]
+	coh = dttFile['results']['COH'][Achan]['coherence'][ind]
+	return ff, TF, coh

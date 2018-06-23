@@ -133,3 +133,20 @@ def plotTF(ff,axMag, axPh, cols='dbdeg',doFormat=False,magLabel='Magnitude [dB]'
 		axMag.grid(True,which='both',linestyle='--',alpha=0.4)
 		axPh.grid(True,which='both',linestyle='--',alpha=0.4)
 	return
+
+def getTopNoisesLISO(lisoFile, ff=100, nNoise=3):
+	'''
+	Function to identify the top nNoise noise contributions from a given LISO output file.
+	Returns the indices of these noise columns in the LISO file.
+	Example usage:
+		ind = getTopNoisesLISO('noise.out',100,3)
+	returns a 3-tuple with the top 3 noises at 100Hz in noise.out
+	'''
+	dat = np.loadtxt(lisoFile)
+	if nNoise > np.shape(dat)[1]:
+		print('To few noises in this file to identify the number you requested.')
+		print(getTopNoisesLISO.__doc__)
+		return
+	xInd = np.argmin(np.abs(dat[:,0]-ff))
+	arr = dat[xInd,:]
+	return np.flip(np.argsort(arr[1:-1])+1,axis=0)[:nNoise]

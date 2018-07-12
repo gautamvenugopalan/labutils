@@ -4,7 +4,7 @@ Collection of generally useful functions for making ELOG plots etc
 import sys, os, subprocess
 import numpy as np
 import scipy.signal as sig
-import nds2
+#import nds2
 from matplotlib.ticker import FormatStrFormatter
 
 def fq2reim(f0,q):

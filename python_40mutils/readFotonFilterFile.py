@@ -44,7 +44,10 @@ def readFilterFile(fileName):
             #This is an actual filter SOS definition
             fname=arg[0]
             index = int(arg[1])
-            p[fname] = {}
+            try:
+                p[fname]
+            except NameError:
+                p[fname] = {}
             p[fname][index] = {}
             p[fname][index]['name']=arg[6]
             p[fname][index]['gain']=float(arg[7])

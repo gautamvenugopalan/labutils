@@ -55,7 +55,7 @@ def parseArgs():
     parser.add_argument('--portNumber', '-p', type=int, default=31200, help='Int. Port number of server selected.  Default is 31200.')
     parser.add_argument('--fotonDictLocation', type=str, default=os.path.expanduser('~'), help='String corresponding to the location of the foton lookup dictionary.  Default is your home directory.')
     parser.add_argument('--fotonArchiveLocation', type=str, default='/opt/rtcds/lho/h1/chans/filter_archive', help='String corresponding to the location of the foton lookup dictionary.  Default is your home directory.')
-    parser.add_argument('--plotTF', action='store_true', help='Flag. If set, interactively plots your filter module TFs')
+    parser.add_argument('--plotTF', action='store_true', help='Flag. If set, interactively plots your filter module TFs. Need this set to save anything.')
     parser.add_argument('--saveTF', action='store_true', help='Flag. If set, saves your filter module TF data')
     parser.add_argument('--savePlot', action='store_true', help='Flag. If set, saves your plots')
     parser.add_argument('--saveDir', type=str, default='{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs'), help='String.  Directory to save your data and plots.  Will create a (saveDir)/data and (saveDir)/plots directory for you if they do not already exist.  Default is {0}'.format('{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs')))
@@ -70,14 +70,6 @@ def parseArgs():
         if '--' in FM:
             print 'Deleting {0}'.format(FM)
             args.filter_modules = np.delete(args.filter_modules, ii)
-
-    if args.debug:
-        print 'Arguments:'
-        print 'gpstime = {0}'.format(args.gpstime)
-        print 'filter_modules = {0}'.format(args.filter_modules)
-        print 'debug = {0}'.format(args.debug)
-        print 'hostServer = {0}'.format(args.hostServer)
-        print 'portNumber = {0}'.format(args.portNumber)
     return args
 
 def tconvertNow():
@@ -333,9 +325,9 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
         filename = '{0}_TF_GPStime_{1}'.format(filter_module.replace('-','_'), args.gpstime)
         if args.saveTF:
             saveData = np.vstack((ff, np.abs(totalTF), np.angle(totalTF))).T
-            saveDirData = '{0}/{1}'.format(args.saveDir,'data')
+            saveDirData = '{0}/{1}/{2}'.format(args.saveDir,'data',filter_module.replace('-','_'))
             if not os.path.isdir(saveDirData):
-                os.mkdir(saveDirData)
+                os.makedirs(saveDirData)
             np.savetxt(saveDirData+'/'+filename+'.txt', saveData, header='{0:18s}{1:18s}{2:18s}'.format('Frequency [Hz]', 'Magnitude', 'Phase [rads]'))
 
         pylab.ion()
@@ -360,9 +352,9 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
         axes[1].grid()
         axes[1].grid(which='minor', ls='--')
         if args.savePlot:
-            saveDirPlots = '{0}/{1}'.format(args.saveDir,'plots')
+            saveDirPlots = '{0}/{1}/{2}'.format(args.saveDir,'plots',filter_module.replace('-','_'))
             if not os.path.isdir(saveDirPlots):
-                os.mkdir(saveDirPlots)
+                os.makedirs(saveDirPlots)
             pylab.savefig(saveDirPlots+'/'+filename+'.pdf', bbox_inches='tight')
     pylab.show(block=True)
     return ff, totalTF
@@ -503,7 +495,7 @@ if __name__=='__main__':
     startTime = time.time()
     args = parseArgs()
     
-    FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation)
+    FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation, args.plotTF, args.saveTF, args.savePlot, args.saveDir)
 
     print
     print 'Done in {0} minutes'.format((time.time() - startTime)/60.0)

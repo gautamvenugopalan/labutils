@@ -287,6 +287,7 @@ def readFotonFile(fotonFilename):
 
 def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, np.log10(2**13), 300), nyquist=2.0**14, saveTF=False, plotTF=True, savePlot=False):
     '''Now that we have the foton dictionary and the filter module state at the gpstime of interest, we create a transfer function for the whole filter module relevant at that time.'''
+    allTotalTFs = {}
     for filter_module in args.filter_modules:
         FMdict = FMdicts[filter_module]
         fDict = requestedFotonDict[filter_module]
@@ -321,7 +322,8 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
             totalTF *= GAIN
         else:
             print '{cb}WARNING: {0} FM GAIN = 0{ce}'.format(filter_module, cb=bcolors.RED, ce=bcolors.ENDC)
-
+        allTotalTFs[filter_module] = totalTF
+        
         filename = '{0}_TF_GPStime_{1}'.format(filter_module.replace('-','_'), args.gpstime)
         if args.saveTF:
             saveData = np.vstack((ff, np.abs(totalTF), np.angle(totalTF))).T
@@ -357,7 +359,7 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
                 os.makedirs(saveDirPlots)
             pylab.savefig(saveDirPlots+'/'+filename+'.pdf', bbox_inches='tight')
     pylab.show(block=True)
-    return ff, totalTF
+    return allTotalTFs
 
 def printState(FMchanData):
     SWSTAT = FMchanData[0].data[-1]

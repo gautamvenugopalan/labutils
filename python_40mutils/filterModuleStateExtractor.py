@@ -59,6 +59,9 @@ def parseArgs():
     parser.add_argument('--saveTF', action='store_true', help='Flag. If set, saves your filter module TF data')
     parser.add_argument('--savePlot', action='store_true', help='Flag. If set, saves your plots')
     parser.add_argument('--saveDir', type=str, default='{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs'), help='String.  Directory to save your data and plots.  Will create a (saveDir)/data and (saveDir)/plots directory for you if they do not already exist.  Default is {0}'.format('{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs')))
+    parser.add_argument('--fflow', '-ffl', type=int, default=-2, help='Int. Log 10 low frequency.  Default is -2.')
+    parser.add_argument('--ffhigh', '-ffh', type=int, default=5, help='Int. Log 10 high frequency.  Default is 5.')
+    parser.add_argument('--ffnumPoints', '-ffn', type=int, default=1000, help='Int. Number of points in freq vec.  Default is 1000.')
     args = parser.parse_args()
 
     if args.gpstime == 'now':
@@ -250,6 +253,7 @@ def createFotonLookupDict(args, fotonDictName='fotonLookupTable.dict'):
 
 def findFotonFilename(args, filter_module, fotonDictName='fotonLookupTable.dict'):
     ''' Finds the filterModule foton file you need based on gpstime and filter module name'''
+
     # read in lookup dictionary
     fullFotonDictName = '{0}/{1}'.format(args.fotonDictLocation, fotonDictName)
     with open(fullFotonDictName, 'rb') as filename:
@@ -285,9 +289,11 @@ def readFotonFile(fotonFilename):
     fotonDict = readFotonFilterFile.readFilterFile(fotonFilename)
     return fotonDict
 
-def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, np.log10(2**13), 300), nyquist=2.0**14, saveTF=False, plotTF=True, savePlot=False):
+def createFilterModuleTF(args, FMdicts, requestedFotonDict, nyquist=2.0**14, saveTF=False, plotTF=True, savePlot=False):
     '''Now that we have the foton dictionary and the filter module state at the gpstime of interest, we create a transfer function for the whole filter module relevant at that time.'''
     allTotalTFs = {}
+    allTotalFMs = {}
+    ff = args.ff
     for filter_module in args.filter_modules:
         FMdict = FMdicts[filter_module]
         fDict = requestedFotonDict[filter_module]
@@ -299,9 +305,11 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
         totalTF = np.array([])
         totalFMs = np.array([])
         for FM in fDict.keys(): # recall that FM1 == 0, FM2 == 1... in the keys of this dict
-            print 'Getting FM{0}'.format(FM+1)
+            if args.debug:
+                print 'Getting FM{0}'.format(FM+1)
             if int(FMdict['ONOFF']['FM{0}'.format(FM+1)]) == 0:
-                print 'FM{0} is OFF, skipping...'.format(FM+1)
+                if args.debug:
+                    print 'FM{0} is OFF, skipping...'.format(FM+1)
                 continue
             else: 
                 totalFMs = np.append(totalFMs, 'FM{0}'.format(FM+1))
@@ -316,14 +324,15 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
             else:
                 totalTF *= TF
         if len(totalTF) == 0:
-            print 'No FMs active, TF = 1 for all frequencies'
+            print 'No FMs active for {0}, TF = 1 for all frequencies'.format(filter_module)
             totalTF = np.ones(len(ff))
         if not GAIN == 0:
             totalTF *= GAIN
         else:
             print '{cb}WARNING: {0} FM GAIN = 0{ce}'.format(filter_module, cb=bcolors.RED, ce=bcolors.ENDC)
         allTotalTFs[filter_module] = totalTF
-        
+        allTotalFMs[filter_module] = totalFMs        
+
         filename = '{0}_TF_GPStime_{1}'.format(filter_module.replace('-','_'), args.gpstime)
         if args.saveTF:
             saveData = np.vstack((ff, np.abs(totalTF), np.angle(totalTF))).T
@@ -331,34 +340,42 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, ff=np.logspace(-2, n
             if not os.path.isdir(saveDirData):
                 os.makedirs(saveDirData)
             np.savetxt(saveDirData+'/'+filename+'.txt', saveData, header='{0:18s}{1:18s}{2:18s}'.format('Frequency [Hz]', 'Magnitude', 'Phase [rads]'))
-
+    if args.plotTF:
         pylab.ion()
-        fig, axes = pylab.subplots(2, sharex=True)
-        fig.suptitle('{0} Total TF at GPStime = {1}\nFMs Engaged: {2}, Gain = {3:.3f}, Input = {4}, Output = {5}'.format(filter_module, args.gpstime, ' '.join(totalFMs), GAIN, INPUT, OUTPUT))
-        axes[0].loglog(ff, np.abs(totalTF))
-        axes[1].semilogx(ff, 180/np.pi*np.angle(totalTF))
+        for filter_module in allTotalTFs.keys():
+            totalTF = allTotalTFs[filter_module]
+            totalFMs = allTotalFMs[filter_module]
+            FMdict = FMdicts[filter_module]
+            GAIN = FMdict['VALUES']['GAIN']
+            INPUT = FMdict['ONOFF']['INPUT']
+            OUTPUT = FMdict['ONOFF']['OUTPUT']
 
-        axes[0].set_ylabel('Magnitude')
-        axes[1].set_ylabel('Phase [degs]')
-        axes[1].set_xlabel('Frequency [Hz]')
+            fig, axes = pylab.subplots(2, sharex=True)
+            fig.suptitle('{0} Total TF at GPStime = {1}\nFMs Engaged: {2}, Gain = {3:.3f}, Input = {4}, Output = {5}'.format(filter_module.replace('_', ' '), args.gpstime, ' '.join(totalFMs), GAIN, INPUT, OUTPUT))
+            axes[0].loglog(ff, np.abs(totalTF))
+            axes[1].semilogx(ff, 180/np.pi*np.angle(totalTF))
 
-        axes[0].set_xlim([min(ff), max(ff)])
-        axes[1].set_xlim([min(ff), max(ff)])
-        minYAxis2 = 45.0*np.floor(min(180/np.pi*np.angle(totalTF))/45.0)
-        maxYAxis2 = 45.0*np.ceil(max(180/np.pi*np.angle(totalTF))/45.0)
-        axes[1].set_ylim([minYAxis2, maxYAxis2])
-        axes[1].set_yticks(np.linspace(minYAxis2, maxYAxis2, np.round((maxYAxis2-minYAxis2)/45)+1))
+            axes[0].set_ylabel('Magnitude')
+            axes[1].set_ylabel('Phase [degs]')
+            axes[1].set_xlabel('Frequency [Hz]')
 
-        axes[0].grid()
-        axes[0].grid(which='minor', ls='--')
-        axes[1].grid()
-        axes[1].grid(which='minor', ls='--')
-        if args.savePlot:
-            saveDirPlots = '{0}/{1}/{2}'.format(args.saveDir,'plots',filter_module.replace('-','_'))
-            if not os.path.isdir(saveDirPlots):
-                os.makedirs(saveDirPlots)
-            pylab.savefig(saveDirPlots+'/'+filename+'.pdf', bbox_inches='tight')
-    pylab.show(block=True)
+            axes[0].set_xlim([min(ff), max(ff)])
+            axes[1].set_xlim([min(ff), max(ff)])
+            minYAxis2 = 45.0*np.floor(min(180/np.pi*np.angle(totalTF))/45.0)
+            maxYAxis2 = 45.0*np.ceil(max(180/np.pi*np.angle(totalTF))/45.0)
+            axes[1].set_ylim([minYAxis2, maxYAxis2])
+            axes[1].set_yticks(np.linspace(minYAxis2, maxYAxis2, np.round((maxYAxis2-minYAxis2)/45)+1))
+
+            axes[0].grid()
+            axes[0].grid(which='minor', ls='--')
+            axes[1].grid()
+            axes[1].grid(which='minor', ls='--')
+            if args.savePlot:
+                saveDirPlots = '{0}/{1}/{2}'.format(args.saveDir,'plots',filter_module.replace('-','_'))
+                if not os.path.isdir(saveDirPlots):
+                    os.makedirs(saveDirPlots)
+                pylab.savefig(saveDirPlots+'/'+filename+'.pdf', bbox_inches='tight')
+        pylab.show(block=True)
     return allTotalTFs
 
 def printState(FMchanData):
@@ -402,15 +419,16 @@ def printState(FMchanData):
     print 
     return
 
-def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.caltech.edu', portNumber=31200, fotonDictLocation=os.path.expanduser('~'), fotonArchiveLocation='/opt/rtcds/lho/h1/chans/filter_archive', plotTF=True, saveTF=False, savePlot=False, saveDir='{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs')):
+def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.caltech.edu', portNumber=31200, fotonDictLocation=os.path.expanduser('~'), fotonArchiveLocation='/opt/rtcds/lho/h1/chans/filter_archive', plotTF=True, saveTF=False, savePlot=False, saveDir='{0}/{1}'.format(os.path.expanduser('~'), 'fotonTFs'), fflow=-2, ffhigh=5, ffnumPoints=1000, ff=None):
     '''
     Main function of filterModuleStateExtractor library
     Acquires the filter module at the gpstime from user inputs, 
     and returns two dictionaries and a namespace corresponding to the filter module information.
     OUTPUTS:
-    The first is the info from the medm screen, like what buttons are on, etc.
-    The second is the foton files containing the second order sections of the filters.    
-    The third is the args namespace corresponding to your inputs.
+    The first is the total TFs from all requested filter modules at the gpstime.
+    The second is the info from the medm screen, like what buttons are on, etc.
+    The third is the foton files containing the second order sections of the filters.    
+    The fourth is the args namespace corresponding to your inputs.
 
     You have to create a lookup dictionary using createFotonLookupDict() in this library to get this function to work.
 
@@ -428,7 +446,7 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
     '''
     # Create an artificial args class
     class Test:
-        def __init__(self, FMs, gps, db, hs, pn, fdl, fal, pTF, sTF, sp, sd):
+        def __init__(self, FMs, gps, db, hs, pn, fdl, fal, pTF, sTF, sp, sd, ffl, ffh, ffn, ff):
             self.gpstime = gps
             self.filter_modules = FMs
             self.debug = db
@@ -440,8 +458,14 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
             self.saveTF = sTF
             self.savePlot = sp
             self.saveDir = sd
-    
-    args = Test(filter_modules, gpstime, debug, hostServer, portNumber, fotonDictLocation, fotonArchiveLocation, plotTF, saveTF, savePlot, saveDir)
+            self.fflow = ffl
+            self.ffhigh = ffh
+            self.ffnumPoints = ffn
+            if ff is None:
+                self.ff = np.logspace(self.fflow, self.ffhigh, self.ffnumPoints)
+            else:
+                self.ff = ff
+    args = Test(filter_modules, gpstime, debug, hostServer, portNumber, fotonDictLocation, fotonArchiveLocation, plotTF, saveTF, savePlot, saveDir, fflow, ffhigh, ffnumPoints, ff)
     # Do same argument conditioning as in parseArgs()
     if args.gpstime == 'now':
         args.gpstime = tconvertNow()
@@ -466,7 +490,10 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
         print 'saveTF = {0}'.format(args.saveTF)
         print 'savePlot = {0}'.format(args.savePlot)
         print 'saveDir = {0}'.format(args.saveDir)
-
+        print 'fflow = {0}'.format(args.fflow)
+        print 'ffhigh = {0}'.format(args.ffhigh)
+        print 'ffnumPoints = {0}'.format(args.ffnumPoints)
+        print 'ff = {0} through {1}'.format(args.ff[0], args.ff[1])
     # If foton lookup dict does not exist, create it
     createFotonLookupDict(args, fotonDictName='fotonLookupTable.dict')
 
@@ -483,21 +510,23 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
             # Get foton file, read relevant sos, make TF
             # Foton names everything with underscores, no dashes :(
             filter_module_underscore = filter_module.replace('-', '_')
+            if 'SUS_' in filter_module_underscore:
+                filter_module_underscore = filter_module_underscore[4:]
+
             fotonFilename = findFotonFilename(args, filter_module_underscore)
             fotonDict = readFotonFile(fotonFilename)
             curDict = fotonDict[filter_module_underscore] # switch name back to dashes
             requestedFotonDict[filter_module] = curDict
 
-    if args.plotTF:
-        createFilterModuleTF(args, FMdicts, requestedFotonDict)
+    requestedFMTFs = createFilterModuleTF(args, FMdicts, requestedFotonDict)
 
-    return FMdicts, requestedFotonDict, args
+    return requestedFMTFs, FMdicts, requestedFotonDict, args
 #########################################################################################
 if __name__=='__main__':
     startTime = time.time()
     args = parseArgs()
     
-    FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation, args.plotTF, args.saveTF, args.savePlot, args.saveDir)
+    FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation, args.plotTF, args.saveTF, args.savePlot, args.saveDir, args.fflow, args.ffhigh, args.ffnumPoints)
 
     print
     print 'Done in {0} minutes'.format((time.time() - startTime)/60.0)

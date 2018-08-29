@@ -515,7 +515,10 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
             # Get foton file, read relevant sos, make TF
             # Foton names everything with underscores, no dashes :(
             filter_module_underscore = filter_module.replace('-', '_')
+            # If SUS or CAL model, foton doesn't use these prefixes :((
             if 'SUS_' in filter_module_underscore:
+                filter_module_underscore = filter_module_underscore[4:]
+            if 'CAL_' in filter_module_underscore:
                 filter_module_underscore = filter_module_underscore[4:]
 
             fotonFilename = findFotonFilename(args, filter_module_underscore)

@@ -185,7 +185,7 @@ def storeState(FMchanData):
     OFFSET = FMchanData[2].data[-1]
     TRAMP = FMchanData[3].data[-1]
     LIMIT = FMchanData[4].data[-1]
-    SWSTAT = np.binary_repr(SWSTAT)
+    SWSTAT = np.binary_repr(int(SWSTAT))
 
     FMdict = {'ONOFF': {'INPUT': SWSTAT[5],
                         'OUTPUT': SWSTAT[3],
@@ -289,22 +289,26 @@ def readFotonFile(fotonFilename):
     fotonDict = readFotonFilterFile.readFilterFile(fotonFilename)
     return fotonDict
 
-def createFilterModuleTF(args, FMdicts, requestedFotonDict, nyquist=2.0**14, saveTF=False, plotTF=True, savePlot=False):
+def createFilterModuleTF(args, FMdicts, requestedFotonDict, saveTF=False, plotTF=True, savePlot=False):
     '''Now that we have the foton dictionary and the filter module state at the gpstime of interest, we create a transfer function for the whole filter module relevant at that time.'''
     allTotalTFs = {}
     allTotalFMs = {}
     ff = args.ff
     for filter_module in args.filter_modules:
         FMdict = FMdicts[filter_module]
-        fDict = requestedFotonDict[filter_module]
         GAIN = FMdict['VALUES']['GAIN']
         INPUT = FMdict['ONOFF']['INPUT']
         OUTPUT = FMdict['ONOFF']['OUTPUT']
 
-        wwNorm = 2*np.pi*ff/nyquist
+        fDict = requestedFotonDict[filter_module]
+        sampleRate = fDict['fs']
+
+        wwNorm = 2*np.pi*ff/sampleRate
         totalTF = np.array([])
         totalFMs = np.array([])
         for FM in fDict.keys(): # recall that FM1 == 0, FM2 == 1... in the keys of this dict
+            if FM=='fs':
+                continue
             if args.debug:
                 print 'Getting FM{0}'.format(FM+1)
             if int(FMdict['ONOFF']['FM{0}'.format(FM+1)]) == 0:
@@ -375,7 +379,8 @@ def createFilterModuleTF(args, FMdicts, requestedFotonDict, nyquist=2.0**14, sav
                 if not os.path.isdir(saveDirPlots):
                     os.makedirs(saveDirPlots)
                 pylab.savefig(saveDirPlots+'/'+filename+'.pdf', bbox_inches='tight')
-        pylab.show(block=True)
+        pylab.show(block=False)
+
     return allTotalTFs
 
 def printState(FMchanData):
@@ -384,7 +389,7 @@ def printState(FMchanData):
     OFFSET = FMchanData[2].data[-1]
     TRAMP = FMchanData[3].data[-1]
     LIMIT = FMchanData[4].data[-1]
-    SWSTAT = np.binary_repr(SWSTAT)
+    SWSTAT = np.binary_repr(int(SWSTAT))
     
     print
     print bcolors.YELLOW+'=============================================='+bcolors.ENDC
@@ -516,6 +521,7 @@ def getFMState(filter_modules, gpstime, debug=False, hostServer='nds.ligo-wa.cal
             fotonFilename = findFotonFilename(args, filter_module_underscore)
             fotonDict = readFotonFile(fotonFilename)
             curDict = fotonDict[filter_module_underscore] # switch name back to dashes
+            curDict['fs'] = fotonDict['fs']
             requestedFotonDict[filter_module] = curDict
 
     requestedFMTFs = createFilterModuleTF(args, FMdicts, requestedFotonDict)
@@ -526,7 +532,7 @@ if __name__=='__main__':
     startTime = time.time()
     args = parseArgs()
     
-    FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation, args.plotTF, args.saveTF, args.savePlot, args.saveDir, args.fflow, args.ffhigh, args.ffnumPoints)
+    FMTFs, FMdicts, requestedFotonDict, args = getFMState(args.filter_modules, args.gpstime, args.debug, args.hostServer, args.portNumber, args.fotonDictLocation, args.fotonArchiveLocation, args.plotTF, args.saveTF, args.savePlot, args.saveDir, args.fflow, args.ffhigh, args.ffnumPoints)
 
     print
     print 'Done in {0} minutes'.format((time.time() - startTime)/60.0)

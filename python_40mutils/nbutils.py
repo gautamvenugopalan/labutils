@@ -3,9 +3,9 @@ from matplotlib import pyplot as plt
 import numpy as np
 import scipy.signal as sig
 import os
-import nds2
+#import nds2
 import scipy.io as scio
-import noisesub as n
+#import noisesub as n
 import readFotonFilterFile
 import dtt2hdf
 import yaml
@@ -393,6 +393,24 @@ def readDTTFile(dttFile, Bchan, Achan):
 	TF = dtt['results']['TF'][Achan]['xfer'][ind]
 	coh = dtt['results']['COH'][Achan]['coherence'][ind]
 	return ff, TF, coh
+
+def readDTTSpec(dttFile):
+    '''
+    Function to load a dttFile, and return a dictionary with ASD spectra.
+    Example usage:
+        ff, spec = readDTTFile('BS_seis.xml')
+        returns
+            spec --- Dictionary with frequency vectors and ASDs from the dtt xml file.
+    '''
+    dtt = dtt2hdf.read_diaggui(dttFile)
+    # Initialize an empty dictionary.
+    spec = {}
+    for ii in dtt['results']['PSD'].keys():
+        # Extract the ASD
+        spec[ii] = dtt['results']['PSD'][ii]['PSD'][:]
+        # Tack on a frequency vector
+        spec[ii+'_ff'] = dtt['results']['PSD'][ii]['FHz']
+    return spec
 
 def TFunc(TF,coh, nAvg=1):
 	'''

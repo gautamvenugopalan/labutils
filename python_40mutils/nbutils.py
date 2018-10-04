@@ -407,7 +407,7 @@ def readDTTSpec(dttFile):
     spec = {}
     for ii in dtt['results']['PSD'].keys():
         # Extract the ASD
-        spec[ii] = dtt['results']['PSD'][ii]['PSD'][:]
+        spec[ii] = dtt['results']['PSD'][ii]['PSD'][0,:]
         # Tack on a frequency vector
         spec[ii+'_ff'] = dtt['results']['PSD'][ii]['FHz']
     return spec

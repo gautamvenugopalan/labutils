@@ -35,7 +35,7 @@ def tarballz(outFile, fileList):
 	subprocess.call(tarCommand, shell=True, stdout=FNULL, stderr=subprocess.STDOUT)
 	return
 
-def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25)):
+def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25), ndsServer='131.215.115.200', ndsPort=31200):
 	'''
 	Computes a spectrogram by downloading data from NDS2.
 	Example usage:
@@ -44,7 +44,7 @@ def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25)):
 	Option to specify windowing function used by scipy.signal.spectrogram.
 	Note that Power Spectral Density is returned, use sqrt where appropriate!
 	'''
-	conn = nds2.connection('nds40.ligo.caltech.edu', 31200)
+	conn = nds2.connection(ndsServer, ndsPort)
 	print('Getting NDS data')
 	dat = conn.fetch(tStart, tStop, channel)
 	print('Got NDS data...')

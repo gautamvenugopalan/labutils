@@ -4,7 +4,7 @@ Collection of generally useful functions for making ELOG plots etc
 import sys, os, subprocess
 import numpy as np
 import scipy.signal as sig
-#import nds2
+import nds2
 from matplotlib.ticker import FormatStrFormatter
 
 def fq2reim(f0,q):
@@ -39,7 +39,7 @@ def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25), ndsSer
 	'''
 	Computes a spectrogram by downloading data from NDS2.
 	Example usage:
-		tt, ff, Sxx = makeLSCspecgram(['C1:LSC-XARM_IN1_DQ'],1208808916,1208808917, t_fft=4, win=('tukey', 0.25))
+		ff, tt, Sxx = makeLSCspecgram(['C1:LSC-XARM_IN1_DQ'],1208808916,1208808917, t_fft=4, win=('tukey', 0.25))
 	will download the data, and make a spectrogram with 4 second FFT time.
 	Option to specify windowing function used by scipy.signal.spectrogram.
 	Note that Power Spectral Density is returned, use sqrt where appropriate!

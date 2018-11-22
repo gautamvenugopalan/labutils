@@ -245,17 +245,17 @@ else:
     coupling = stim_quiet_asd_50 * tf
     np.savetxt(savepath_tf, np.c_[ff, whitenoise_tf])
     np.savetxt(savepath_asd, np.c_[ff, coupling])
-	if full_output == True:
-    	return ff, coupling, f_tf, tf
-	else:
-    	return ff, coupling
+    if full_output == True:
+        return ff, coupling, f_tf, tf
+    else:
+        return ff, coupling
 '''
 def medianASD(x, w=('tukey',0.25), fs=2**14, fftLen=8, correction=True, oneSide=True):
-	ff,tt,Pxx = sig.spectrogram(x,fs=fs,window=w,nperseg=fftLen*fs,mode='psd',return_onesided=oneSide)
-	mASD = np.median(np.sqrt(Pxx),1)
-	if correction:
-		mASD = mASD / np.sqrt(np.log(2))
-	return ff, mASD
+    ff,tt,Pxx = sig.spectrogram(x,fs=fs,window=w,nperseg=fftLen*fs,mode='psd',return_onesided=oneSide)
+    mASD = np.median(np.sqrt(Pxx),1)
+    if correction:
+        mASD = mASD / np.sqrt(np.log(2))
+    return ff, mASD
 
 
 def get_whitenoise_tf(stim_chan, resp_chan, inj_start, inj_stop, quiet_start, quiet_stop,stim_name, resp_name, savedir):
@@ -340,59 +340,59 @@ def get_ifo_data_nds(channel, start, stop, **kwargs):
     return ff1,np.sqrt(psd)
 
 def get_OL_coupling(ff, tStart, tStop, opticname, DoFname,filtFile,filts,scalarGain):
-	'''
-	ff = frequency vector
-	chans = channels to fetch
-	tStart = start time
-	tStop = stop time
-	opticname = array of optics
-	DoFname = ['PIT','YAW']
-	filtStruct = output of readFotonFilterFile
-	fitls = array of filter that are enabled
-	'''
-	#Load filter coefficients to convert error signal into control sig.
-	filtDict = readFotonFilterFile.readFilterFile(filtFile) 
-	pMICH_OL_coh = 0
-	for ii, opt in enumerate(opticname):
-		for jj, dof in enumerate(DoFname):
-			#Get the DQ-ed error signal
-			if dof=='PIT':
-				chan = 'C1:SUS-'+opt+'_OPLEV_PERROR'
-			else:
-				chan = 'C1:SUS-'+opt+'_OPLEV_YERROR'
-			print('Getting DQ-ed OL error signal {}'.format(chan))
-			ff, dat = get_ifo_data_nds(chan, tStart, tStop)
-			#Next, convert the DQed error signal into the control signal
-			ctrlFilt = np.array([1., 0., 0., 1., 0., 0.])
-			for ii in filts:
-				ctrlFilt = np.vstack((ctrlFilt,filtDict[opt+'_OL_'+dof][ii]['sosCoeffs']))
-			w = 2*np.pi*ff / 2**13 #Normalizing to the Nyquist
-			w,h = sig.sosfreqz(ctrlFilt,w)
-			psd_temp = np.abs(h) * dat * scalarGain
-			TF_temp = np.loadtxt('Data/OL_coupling_TFs/'+opt+'_'+dof+'.txt')
-			TF_temp_mag = np.interp(ff, TF_temp[:,0], np.sqrt(TF_temp[:,1]**2 + TF_temp[:,2]**2))
-			psd_proj = np.sqrt(psd_temp)*TF_temp_mag
-			pMICH_OL_coh += psd_proj**2
-	pMICH_OL_coh = np.sqrt(pMICH_OL_coh)
-	return ff, pMICH_OL_coh
+    '''
+    ff = frequency vector
+    chans = channels to fetch
+    tStart = start time
+    tStop = stop time
+    opticname = array of optics
+    DoFname = ['PIT','YAW']
+    filtStruct = output of readFotonFilterFile
+    fitls = array of filter that are enabled
+    '''
+    #Load filter coefficients to convert error signal into control sig.
+    filtDict = readFotonFilterFile.readFilterFile(filtFile) 
+    pMICH_OL_coh = 0
+    for ii, opt in enumerate(opticname):
+        for jj, dof in enumerate(DoFname):
+            #Get the DQ-ed error signal
+            if dof=='PIT':
+                chan = 'C1:SUS-'+opt+'_OPLEV_PERROR'
+            else:
+                chan = 'C1:SUS-'+opt+'_OPLEV_YERROR'
+            print('Getting DQ-ed OL error signal {}'.format(chan))
+            ff, dat = get_ifo_data_nds(chan, tStart, tStop)
+            #Next, convert the DQed error signal into the control signal
+            ctrlFilt = np.array([1., 0., 0., 1., 0., 0.])
+            for ii in filts:
+                ctrlFilt = np.vstack((ctrlFilt,filtDict[opt+'_OL_'+dof][ii]['sosCoeffs']))
+            w = 2*np.pi*ff / 2**13 #Normalizing to the Nyquist
+            w,h = sig.sosfreqz(ctrlFilt,w)
+            psd_temp = np.abs(h) * dat * scalarGain
+            TF_temp = np.loadtxt('Data/OL_coupling_TFs/'+opt+'_'+dof+'.txt')
+            TF_temp_mag = np.interp(ff, TF_temp[:,0], np.sqrt(TF_temp[:,1]**2 + TF_temp[:,2]**2))
+            psd_proj = np.sqrt(psd_temp)*TF_temp_mag
+            pMICH_OL_coh += psd_proj**2
+    pMICH_OL_coh = np.sqrt(pMICH_OL_coh)
+    return ff, pMICH_OL_coh
 
 def readDTTFile(dttFile, Bchan, Achan):
-	'''
-	Function to load a dttFile, extract Transfer Function & Coherence information
-	and return those along with a frequency vector.
-	Example usage:
-		ff, TF, coh = readDTTFile('MICH.xml','C1:LSC-MICH_IN1','C1:LSC-MICH_EXC')
-	returns
-		ff --- Frequency vector in Hz
-		TF --- Complex valued TF from C1:LSC-MICH_EXC to C1:LSC-MICH_IN1
-		coh --- coherence of measurement
-	'''
-	dtt = dtt2hdf.read_diaggui(dttFile)
-	ind = dtt['results']['TF'][Achan]['channelB'].tolist().index(Bchan)
-	ff = dtt['results']['TF'][Achan]['FHz']
-	TF = dtt['results']['TF'][Achan]['xfer'][ind]
-	coh = dtt['results']['COH'][Achan]['coherence'][ind]
-	return ff, TF, coh
+    '''
+    Function to load a dttFile, extract Transfer Function & Coherence information
+    and return those along with a frequency vector.
+    Example usage:
+        ff, TF, coh = readDTTFile('MICH.xml','C1:LSC-MICH_IN1','C1:LSC-MICH_EXC')
+    returns
+        ff --- Frequency vector in Hz
+        TF --- Complex valued TF from C1:LSC-MICH_EXC to C1:LSC-MICH_IN1
+        coh --- coherence of measurement
+    '''
+    dtt = dtt2hdf.read_diaggui(dttFile)
+    ind = dtt['results']['TF'][Achan]['channelB'].tolist().index(Bchan)
+    ff = dtt['results']['TF'][Achan]['FHz']
+    TF = dtt['results']['TF'][Achan]['xfer'][ind]
+    coh = dtt['results']['COH'][Achan]['coherence'][ind]
+    return ff, TF, coh
 
 def readDTTSpec(dttFile):
     '''
@@ -413,19 +413,68 @@ def readDTTSpec(dttFile):
     return spec
 
 def TFunc(TF,coh, nAvg=1):
-	'''
-	Function that takes in a (complex valued) transfer function
-	and coherence, calculates the uncertainties in mag and phase
-	as per Bendat and Piersol, and makes error bars in magnitude 
-	and phase. 
-	Example usage:
-		dMag, dPhase = TFunc(TF,coh)
-	returns 
-		dMag --- Uncertainty in the TF magnitude [abs]
-		dPhase --- Uncertainty in phase [deg]
-	'''
-	mag = np.abs(TF)
-	ph = np.angle(TF, deg=True)
-	dMag = mag * np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg) #Bendat & Piersol Eq 9.90
-	dPhase = np.rad2deg(np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg)) #Bendat & Piersol Eq 9.91, valid only for small magnitude uncertainties!
-	return dMag, dPhase
+    '''
+    Function that takes in a (complex valued) transfer function
+    and coherence, calculates the uncertainties in mag and phase
+    as per Bendat and Piersol, and makes error bars in magnitude 
+    and phase. 
+    Example usage:
+        dMag, dPhase = TFunc(TF,coh)
+    returns 
+        dMag --- Uncertainty in the TF magnitude [abs]
+        dPhase --- Uncertainty in phase [deg]
+    '''
+    mag = np.abs(TF)
+    ph = np.angle(TF, deg=True)
+    dMag = mag * np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg) #Bendat & Piersol Eq 9.90
+    dPhase = np.rad2deg(np.sqrt(1-coh**2) / np.abs(coh) / np.sqrt(2*nAvg)) #Bendat & Piersol Eq 9.91, valid only for small magnitude uncertainties!
+    return dMag, dPhase
+
+def digitalDemod(dat, fs, fLO, fLP, quad='I'):
+    '''
+    Mixes the data vector with a local oscillator.
+    
+    Parameters:
+    -----------
+    dat: array_like
+        Time series of data to demodulate
+    fs: int
+        Sampling frequency at which dat is sampled [Hz]
+    fLO: float
+        Frequency of the Local Oscillator [Hz]
+    fLP: float
+        Frequency of the post mixer LPF (2nd order butterworth) [Hz]
+    quad: string
+        Defines dempodulation quadrature, 'I' or 'Q'
+    
+    Returns:
+    --------
+    tt: array_like
+        time vector for demodulated downsampled low-passed data
+    resultLP: complex
+	Demodulated and low-passed time series.
+    '''
+    tt = np.arange(len(dat))/fs
+    if quad=='I':
+        LO = np.exp(2j*np.pi*fLO*tt)
+    elif quad=='Q':
+        LO = 1j*np.exp(2j*np.pi*fLO*tt)
+    else:
+        print('Unknown demodulation quadrature, please use I or Q.')
+    dat = sig.detrend(dat)
+    # Mix the waveforms
+    result = LO * dat
+
+    # Low-pass the mixed waveform.
+    LPF = sig.butter(2, fLP/(fs/2),output='sos')
+    dsFactor = np.floor(fs/(8*fLP)) # Since we don't need any info above 8* the LPF corner
+    dsRate = fs / dsFactor
+    # Filter the data
+    resultLP = sig.sosfiltfilt(LPF, result)
+    # Downsample filtered data
+    resultLP = resultLP[::int(dsFactor)]
+    # Throw away the first few samples to account for IIR filter impluse response
+    cut = np.ceil(4*dsRate/fLP) 
+    resultLP = resultLP[int(cut):-int(cut)]
+    tt = np.arange(0, len(resultLP)) / dsRate
+    return tt, resultLP 

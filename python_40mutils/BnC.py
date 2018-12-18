@@ -14,6 +14,168 @@
 import numpy as np
 import scipy.constants as scc
 
+class ifo:
+    '''
+    Class object for the IFO object, with which to calculate various quantum noises.
+    All default values are taken from the GWINC Voyager parameter file.
+
+    Attributes:
+    ============
+    T_I: float
+        ITM power transmissivity. Defaults to 0.12436875%.
+    T_E: float
+        ETM power transmissivity. Defaults to 5ppm.
+    T_P: float
+        PRM power transmissivity. Defaults to 3%.
+    T_S: float
+        SRM power transmissivity. Defaults to 5.86%.
+    Litm: float
+        ITM loss. Defaults to 10 ppm.
+    Letm: float
+        ETM loss. Defaults to 10 ppm.
+    Lprm: float
+        Loss in the PRC. Defaults to 500 ppm.
+    Lsrm: float
+        SRM loss. Defaults to 500 ppm.
+    larm: float
+        Arm length in meters. Defaults to 3.995 km.
+    Pin: float
+        Input power on the back of PRM. Defaults to 144.6848 W.
+    m_TM: float
+        Mass of the test masses. Defaults to 200 kg.
+    '''
+    def __init__(self, T_I=0.12436875e-2, T_E=5e-6, T_P=3e-2, T_S=5.86e-2, Litm=10e-6, Letm=10e-6, Lprm=500e-6, Lsrm=500e-6, larm=3995, Pin=144.6848, m_TM=200):
+        self.__dict__.update(locals()) # This hack assigns all the arguments passed to init.
+        self.ti = np.sqrt(self.T_I)
+        self.te = np.sqrt(self.T_E)
+        self.ri = np.sqrt(1 - self.T_I - self.Litm)
+        self.re = np.sqrt(1 - self.T_E - self.Letm)
+        self.tp = np.sqrt(self.T_P)
+        self.ts = np.sqrt(self.T_S)
+        self.rp = np.sqrt(1 - self.T_P - self.Lprm)
+        self.rs = np.sqrt(1 - self.T_S - self.Lsrm)
+        return
+
+# Class definition for the amplifier object
+class amp:
+    '''
+    Class object for the triangular amplifier cavity geometry.
+    
+    Attributes:
+    -----------
+    Ti: float
+      Input coupler (Power) transmissivity. Defaults to 0.35%.
+    Te: float
+      Power transmissivities of the other two mirrors in the ring. Defaults to 5 ppm.
+    Lrt: float
+      Round-trip loss for the amplifier cavity. Defaults to 30ppm.
+    Ip: float
+      Pump power. Defaults to 50 W.
+    m: float
+      Mass of the light mirror [kg]. Defaults to 100g.
+    f0: float
+      Pendulum resonant frequency [Hz]. Defaults to 0.6 Hz.
+    thetas: array_like
+      Angles of incidence, in degrees, on the cavity mirrors. Defaults to [45,0,45].
+    phi: float
+      Round-trip phase (radians) for the pump field. Defaults to 0 rad.
+    lam: float
+      Wavelength of light [m]. Defaults to 2 um.
+    
+    Methods:
+    --------
+    __init__(self, Ti=0.35e-2, Te=5e-6, Lrt=30e-6, Ip=50, m=100e-3, f0=1, thetas=[45,0,45], phi=0, lam=2e-6):
+        Initializes a cavity. Also calculates amplitude transmissivities, reflectivities, cavity gain and sets these as attributes.
+ 
+    cavGain(self, phi=0):
+        Calculates the cavity field gain, for a round-trip phase of phi.
+    ringdownTrans(self, phi=0, alpha=-1., t=1e-6*np.linspace(-50,200,500), noisy=False, sigma=5e-4):
+        Calculates the ringdown in transmission monitored as power at MC2. Option to add some Gaussian noise to the time series.
+    ringdownRefl(self, phi=0, alpha=-1., t=1e-6*np.linspace(-50,200,500), noisy=False, sigma=5e-4):
+        Calculates the ringdown in transmission monitored as power at MC2. Option to add some Gaussian noise to the time series.     
+    '''
+    def __init__(self, Ti=0.35e-2, Te=5e-6, Lrt=30e-6, Ip=50, m=100e-3, f0=0.6, thetas=[45,0,45], phi=0, lam=2e-6):
+        self.__dict__.update(locals()) # This hack assigns all the arguments passed to init.
+        self.t1 = np.sqrt(self.Ti)
+        self.t3 = np.sqrt(self.Te)
+        self.t2 = np.sqrt(self.Te)
+        self.r1 = np.sqrt(1 - self.t1**2 - self.Lrt/3)
+        self.r2 = np.sqrt(1 - self.t2**2 - self.Lrt/3)
+        self.r3 = np.sqrt(1 - self.t3**2 - self.Lrt/3)
+        rho = 1. - self.t1**2 - self.t2**2 - self.t3**2 - self.Lrt
+        self.finesse = np.pi/(2*np.arcsin((1-np.sqrt(rho))/(2*rho**0.25)))
+        self.alphas = np.cos(np.deg2rad(self.thetas))**2
+        num = self.t1
+        den = 1. - np.exp(-1j*self.phi)*self.r1*self.r2*self.r3
+        self.cavGain = num/den
+        self.Icirc = self.Ip * np.abs(self.cavGain)**2
+        self.omega0 = 2*np.pi*scc.c/self.lam
+        return
+    
+    def chi(self, ff=np.logspace(1,4,505)):
+      '''
+      Compute the mechanical TF from force to displacement of the light amplifier mirror.
+      
+      Parameters:
+      ===========
+      ff: array_like
+        Frequency vector on which to evaluate the transfer function
+      '''
+      Omega0 = 2*np.pi*self.f0
+      Omega = 2*np.pi*ff
+      self.chiTF = -1 / (self.m * (Omega**2 - Omega0**2))
+      return(ff, self.chiTF)
+    
+    def Q(self, ff=np.logspace(1,4,505)):
+      '''
+      
+      
+      Parameters:
+      ===========
+      ff: array_like
+        Frequency vector on which to evaluate the transfer function
+      '''
+      self.QTF = 4 * self.omega0 * np.sqrt(2*self.Icirc)/ scc.c / np.sqrt(self.Ti * scc.hbar * omega0)
+      return(ff, QTF)
+    
+    def R(self, ff=np.logspace(1,4,505)):
+      '''
+      Calculate the amplifier optomechanical gain.
+      
+      Parameters:
+      ===========
+      ff: array_like
+        Frequency vector on which to evaluate the transfer function
+      '''
+      _, _ = self.chi()
+      self.RTF = np.abs((32 * self.omega0 * self.Icirc / (self.Ti *scc.c**2))*(self.chi(ff)[1]))
+      return(ff, self.RTF)
+    def freqDepRIN(self, ff=np.logspace(1,4,505), cornerFreq=100, cornerLevel=1e-9):
+      '''
+      Returns frequency dependent RIN ASD
+      
+      Parameters:
+      ------------
+      ff: array_like
+        Frequency vector
+      cornerFreq: float
+        Above this, the RIN ASD is assumed flat. Rises as 1/f below.
+      cornerLevel: float
+        ASD at cornerFreq in 1/rtHz
+    
+      Returns:
+      --------
+      RIN: array_like
+        Frequency dependent RIN
+      '''
+      ww, hh = sig.freqs_zpk([2*np.pi*cornerFreq],[0],cornerLevel, worN=2*np.pi*ff)
+      self.RIN = np.abs(hh)
+      return(ff, np.abs(hh))
+    
+    
+    def printSummary(self):
+      pprint.pprint(vars(self)) 
+      return
 
 def armRefl(IFO, printInfo=False):
     '''

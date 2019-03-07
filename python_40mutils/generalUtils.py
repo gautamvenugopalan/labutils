@@ -7,6 +7,27 @@ import scipy.signal as sig
 import nds2
 from matplotlib.ticker import FormatStrFormatter
 
+def johnson(R,T=298):
+    '''
+    Calculate the Johnson noise for a resistance R at a temperature T.
+    Parameters:
+    ------------
+    R: float or array_like
+        Resistance in Ohms
+    T: float or array_like
+        Temperature in Kelvin. Defaults to 298.
+    Returns:
+    --------
+    vj: float or array_like
+        Voltage Johnson noise
+    ij: float or array_like
+        Current Johnson noise
+    '''
+    vj = np.sqrt(4*scc.k*T*R)
+    ij = vj / R
+    return(vj,ij)
+
+
 def fq2reim(f0,q):
     '''
     Function that converts f0/q pole/zero to ReIm representation.

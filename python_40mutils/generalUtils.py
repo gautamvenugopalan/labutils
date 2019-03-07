@@ -6,6 +6,7 @@ import numpy as np
 import scipy.signal as sig
 import nds2
 from matplotlib.ticker import FormatStrFormatter
+import scipy.constants as scc
 
 def shot(Pdc, lam=1064e-9):
     '''

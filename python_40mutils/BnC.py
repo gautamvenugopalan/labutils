@@ -43,8 +43,10 @@ class ifo:
         Input power on the back of PRM. Defaults to 144.6848 W.
     m_TM: float
         Mass of the test masses. Defaults to 200 kg.
+    lam: float
+        Wavelength. Defaults to 2um.
     '''
-    def __init__(self, T_I=0.12436875e-2, T_E=5e-6, T_P=3e-2, T_S=5.86e-2, Litm=10e-6, Letm=10e-6, Lprm=500e-6, Lsrm=500e-6, larm=3995, Pin=144.6848, m_TM=200):
+    def __init__(self, T_I=0.12436875e-2, T_E=5e-6, T_P=3e-2, T_S=5.86e-2, Litm=10e-6, Letm=10e-6, Lprm=500e-6, Lsrm=500e-6, larm=3995, Pin=144.6848, m_TM=200, lam=2e-6):
         self.__dict__.update(locals()) # This hack assigns all the arguments passed to init.
         self.ti = np.sqrt(self.T_I)
         self.te = np.sqrt(self.T_E)
@@ -191,8 +193,8 @@ def armRefl(IFO, printInfo=False):
     etae = IFO.Letm
     refl = (re*(ti**2 + ri**2) - ri)/(1 - ri*re)
     if printInfo:
-        print('Ri={} %, Ti={} %, Re={} %, Te={} ppm, loss_i={} ppm, loss_e={} ppm'.format(round(100*(ri**2),3),round(100*Ti,3), 
-            round(100*(re**2),3), round(1e6*Te,3), 1e6*etai, 1e6*etae))
+        print('Ri={} %, Ti={} %, Re={} %, Te={} ppm, loss_i={} ppm, loss_e={} ppm'.format(round(100*(ri**2),3),round(100*ti**2,3), 
+            round(100*(re**2),3), round(1e6*te**2,3), 1e6*etai, 1e6*etae))
         print('Amplitude reflectivity is {}'.format(refl))
     return refl
 def PRG(IFO,  printInfo=False):
@@ -205,7 +207,7 @@ def PRG(IFO,  printInfo=False):
     rarm = armRefl(IFO)
     gp = tp / (1-rp*rarm)
     if printInfo:
-        print('PRG is {} for Tp= {} %, Rarm = {} %'.format(round(gp**2, 3), round(100*Tp,3), round(100*rarm**2,3)))
+        print('PRG is {} for Tp= {} %, Rarm = {} %'.format(round(gp**2, 3), round(100*tp**2,3), round(100*rarm**2,3)))
     return gp**2
 def armPole(IFO):
     '''
@@ -224,7 +226,7 @@ def I0SQL(IFO):
     at a GW frequency equal to the arm cavity pole. 
     '''
     gam = 2*np.pi*armPole(IFO)
-    return IFO.m_TM * IFO.larm**2 * gam**4 / 4 / (2*np.pi*scc.c/1064e-9)
+    return IFO.m_TM * IFO.larm**2 * gam**4 / 4 / (2*np.pi*scc.c/IFO.lam)
 
 def kappa(IFO,ff):
     '''
@@ -250,7 +252,7 @@ def eps(IFO):
     Calculates the quantity epsilon given ITM/ETM losses and ITM power transmissivity.
     '''
     return 2*(IFO.Litm+IFO.Letm)/IFO.T_I
-def Cmatrix_lossy(IFO,ph,ff,Lpd=0.1):
+def Cmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the C matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
@@ -273,7 +275,7 @@ def Cmatrix_lossy(IFO,ph,ff,Lpd=0.1):
                              (epsilon*np.cos(phi)/2)*(K*np.cos(phi)*(3+np.exp(2j*bb)) - 4*np.sin(phi)*np.cos(bb)**2) 
                             + (Lsr/2)*(-np.sin(2*phi) + K*np.cos(phi)**2) )
     return C11,C12,C21,C22
-def Dmatrix_lossy(IFO,ph,ff,Lpd=0.1):
+def Dmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the D matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
@@ -290,7 +292,7 @@ def Dmatrix_lossy(IFO,ph,ff,Lpd=0.1):
     D2 = np.sqrt(1.-Lpd)* ( -(-1+rs*np.exp(2j*bb))*np.cos(phi) + (epsilon*np.cos(phi)/4)*(-3 + rs + 2*rs*np.exp(4j*bb) + np.exp(2j*bb)*(-1 + 5*rs)) 
                           + Lsr*np.exp(2j*bb)*rs*np.cos(phi)/2 )
     return D1,D2
-def Pmatrix_lossy(IFO,ph,ff,Lpd=0.1):
+def Pmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the P matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
@@ -307,7 +309,7 @@ def Pmatrix_lossy(IFO,ph,ff,Lpd=0.1):
     P12 = -np.sqrt(1-Lpd)*np.sqrt(Lsr)*ts*np.sin(phi)*(2*np.cos(phi) + K*np.sin(phi))
     P21 = np.sqrt(1-Lpd)*np.sqrt(Lsr)*ts*np.cos(phi)*(2*np.sin(phi) - K*np.cos(phi))
     return P11,P12,P21,P22
-def Qmatrix_lossy(IFO,ph,ff,Lpd=0.1):
+def Qmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the Q matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
@@ -326,7 +328,7 @@ def Qmatrix_lossy(IFO,ph,ff,Lpd=0.1):
     Q12 = np.zeros(len(Q11))
     Q21 = np.zeros(len(Q11))
     return Q11, Q12, Q21, Q22
-def Nmatrix_lossy(IFO,ph,ff,Lpd=0.1):
+def Nmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the N matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
@@ -344,7 +346,7 @@ def Nmatrix_lossy(IFO,ph,ff,Lpd=0.1):
     N12 = -ts*np.sqrt((1.-Lpd)*2*epsilon) * (np.exp(-1j*bb) + rs*np.exp(1j*bb)) * np.cos(bb) * np.sin(phi)
     N21 = ts*np.sqrt((1.-Lpd)*epsilon/2)* ( -K*np.cos(phi)*(1+rs) + 2*np.cos(bb*(np.exp(-1j*bb) + rs*np.exp(1j*bb)))*np.cos(bb)*np.sin(phi) )
     return N11,N12,N21,N22
-def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0.1):
+def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0):
     '''
     Computes the ASD for homodyne readout at homodyne angle zeta (degrees)
     for an SRC tuning of ph [deg] for a LOSSY SR interferometer
@@ -364,7 +366,7 @@ def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0.1):
     num = num * hsql**2
     den = 2 * K * IFO.ts**2 * np.abs(D1*np.sin(zeta) + D2*np.cos(zeta))**2
     return np.sqrt(num/den)
-def vacuumNoise(IFO,ph,zz,ff,Lpd=0.1):
+def vacuumNoise(IFO,ph,zz,ff,Lpd=0):
     '''
     Computes the vacuum noise at homodyne angle zeta (degrees)
     for an SRC tuning of ph [deg] for a LOSSY SR interferometer
@@ -375,7 +377,7 @@ def vacuumNoise(IFO,ph,zz,ff,Lpd=0.1):
     mm = M_lossy(IFO, ph, ff, Lpd)
     num = np.abs(C11*np.sin(zeta) + C21*np.cos(zeta))**2 + np.abs(C12*np.sin(zeta) + C22*np.cos(zeta))**2
     return num / (np.abs(mm**2))
-def M_lossy(IFO,ph,ff,Lpd=0.1):
+def M_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates M for a lossy SR interferometer, assuming readout chain losses of Lpd.
     '''

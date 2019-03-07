@@ -7,6 +7,25 @@ import scipy.signal as sig
 import nds2
 from matplotlib.ticker import FormatStrFormatter
 
+def shot(Pdc, lam=1064e-9):
+    '''
+    Calculate shot noise on a photodiode
+    
+    Parameters:
+    -----------
+    Pdc: float or array_like
+        The average DC power on the PD
+    lam: float or array_like
+        Wavelength of light in meters
+    
+    Returns:
+    --------
+    Pshot: float or array_like
+        Shot noise level in W
+    '''
+    return(np.sqrt(2 * Pdc * scc.h * scc.c / lam))
+
+
 def johnson(R,T=298):
     '''
     Calculate the Johnson noise for a resistance R at a temperature T.

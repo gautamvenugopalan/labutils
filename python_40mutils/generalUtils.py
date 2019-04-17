@@ -87,10 +87,17 @@ def makeLSCspecgram(channel, tStart, tStop, t_fft=4, win=('tukey', 0.25), median
     '''
     conn = nds2.connection(ndsServer, ndsPort)
     print('Getting NDS data')
-    dat = conn.fetch(tStart, tStop, channel)
+    if (tStop-tStart) < 60:
+        dat = conn.fetch(tStart, tStop, channel)
+        Fs = dat[0].channel.sample_rate
+    else:
+        dat = np.array([])
+        for temp in conn.iterate(tStart, tStop, 100, channel):
+            dat = np.hstack((dat, temp[0].data))
+            Fs = temp[0].channel.sample_rate
     print('Got NDS data...')
-    Fs = dat[0].channel.sample_rate
-    ff, tt, Sxx = sig.spectrogram(dat[0].data,fs=Fs,nperseg=int(t_fft*Fs),window=win)
+    #ff, tt, Sxx = sig.spectrogram(dat[0].data,fs=Fs,nperseg=int(t_fft*Fs),window=win)
+    ff, tt, Sxx = sig.spectrogram(dat,fs=Fs,nperseg=int(t_fft*Fs),window=win)
     Sxx = np.sqrt(Sxx)
     if medianNorm:
         Sxx = Sxx / np.median(Sxx, axis=-1)[:,None]

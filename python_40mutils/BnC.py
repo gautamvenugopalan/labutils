@@ -13,6 +13,7 @@
 # Imports
 import numpy as np
 import scipy.constants as scc
+import logging
 
 class ifo:
     '''
@@ -368,15 +369,55 @@ def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0):
     return np.sqrt(num/den)
 def vacuumNoise(IFO,ph,zz,ff,Lpd=0):
     '''
-    Computes the vacuum noise at homodyne angle zeta (degrees)
-    for an SRC tuning of ph [deg] for a LOSSY SR interferometer
+    Computes the vacuum noises at homodyne angle zz (degrees)
+    for an SRC tuning of ph [deg] for a LOSSY SR interferometer.
+    Parameters:
+    -----------
+    IFO: IFO class object
+        Class object with all the IFO params
+    ph: float
+        SRC deturning [deg]
+    zz: float
+        Homodyne phase, BnC convention [deg]
+    ff: array_like
+        Frequency vector [Hz]
+    Lpd: float
+        Photodetection/readout loss.
+    Returns:
+    --------
+    nAS: array_like
+        AS port vacuum
+    nArm: array_like
+        Arm cavity loss
+    nSRC: array_like
+        SRC loss
+    nReadout: array_like
+        Readout loss
+    nTot: array_like
+    Quadrature sum of all of these
     '''
     zeta = np.deg2rad(zz)
     K = kappa(IFO,ff)
-    C11, C12, C21, C22 = Cmatrix_lossy(IFO,ph,ff,Lpd)
+    bb = beta(IFO,ff)
     mm = M_lossy(IFO, ph, ff, Lpd)
-    num = np.abs(C11*np.sin(zeta) + C21*np.cos(zeta))**2 + np.abs(C12*np.sin(zeta) + C22*np.cos(zeta))**2
-    return num / (np.abs(mm**2))
+    C11, C12, C21, C22 = Cmatrix_lossy(IFO,ph,ff,Lpd) / mm
+    N11, N12, N21, N22 = Nmatrix_lossy(IFO,ph,ff,Lpd) / mm
+    P11, P12, P21, P22 = Pmatrix_lossy(IFO,ph,ff,Lpd) / mm
+    Q11, Q12, Q21, Q22 = Qmatrix_lossy(IFO,ph,ff,Lpd) / mm
+    b1 = np.abs(C11*np.sin(zeta) + C21*np.cos(zeta))**2 
+    b2 = np.abs(C12*np.sin(zeta) + C22*np.cos(zeta))**2
+    nAS = np.sqrt(b1 + b2)
+    b1 = np.abs(N11*np.sin(zeta) + N21*np.cos(zeta))**2 
+    b2 = np.abs(N12*np.sin(zeta) + N22*np.cos(zeta))**2
+    nArm = np.sqrt(b1 + b2)
+    b1 = np.abs(P11*np.sin(zeta) + P21*np.cos(zeta))**2 
+    b2 = np.abs(P12*np.sin(zeta) + P22*np.cos(zeta))**2
+    nSRC = np.sqrt(b1 + b2)
+    b1 = np.abs(Q11*np.sin(zeta) + Q21*np.cos(zeta))**2 
+    b2 = np.abs(Q12*np.sin(zeta) + Q22*np.cos(zeta))**2
+    nReadout = np.sqrt(b1 + b2)
+    nTot = np.sqrt(nAS**2 + nArm**2 + nSRC**2 + nReadout**2)
+    return nAS, nArm, nSRC, nReadout, nTot
 def M_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates M for a lossy SR interferometer, assuming readout chain losses of Lpd.
@@ -393,3 +434,39 @@ def M_lossy(IFO,ph,ff,Lpd=0):
          epsilon*rs*np.exp(2j*bb)*(2*np.cos(bb)**2 *(-rs*np.exp(2j*bb) + np.cos(2*phi))
                                       + (K/2)*(3+np.exp(2j*bb))*np.sin(2*phi)))
     return M
+
+def plotTF(fig, ax, mat, ff, magOrPhase='mag'):
+    '''
+    A helper function to visualize the TFs from quadrature to quadrature.
+    Parameters:
+    -----------
+    fig: matplotlib figure
+        Figure on which to plot the data
+    ax: matplotlib axes
+        Axes on which to plot data
+    mat: 2-tuple or 4-tuple of arrays
+        Matrix whose elements to plot as a function of frequency.
+    ff: array_like
+        Frequency vector
+    Returns:
+    --------
+    Nothing, just makes the plot
+    '''
+    # Check that the number of axes is the same as the tuple length
+    if np.size(ax) is not len(mat):
+        logging.critical('Number of axes provided is {} but the matrix is {}x{}. Exiting...'.format(np.size(ax), np.shape(mat)[0], np.shape(mat)[1]))
+        return
+    else:
+        ll=0
+        if magOrPhase == 'mag':
+            for ii in ax:
+                for jj in ii:
+                    jj.loglog(ff, np.abs(mat[ll]))
+                    ll += 1
+        else:
+            for ii in ax:
+                for jj in ii:
+                    jj.loglog(ff, np.angle(mat[ll]), deg=True)
+                    ll += 1
+
+    return

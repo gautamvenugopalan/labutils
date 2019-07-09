@@ -1,5 +1,7 @@
 # Functions for lossy homodyne spectral density
-# These are Equations 5.7--5.12 from Buonanno and Chen 2001, https://doi.org/10.1103/PhysRevD.64.042006
+# Reference: 
+# BnC: Quantum noise in second generation, signal-recycled laser interferometric gravitational-wave detectors,
+# Buonanno and Chen 2001, https://doi.org/10.1103/PhysRevD.64.042006
 # IFO is a class object with the following parameters:
 #	 IFO.Pin  ------ Input power to the back of PRM
 #	 IFO.Litm ------ ITM loss
@@ -185,6 +187,20 @@ def armRefl(IFO, printInfo=False):
     Function to calculate the reflectivity of a (lossy) two mirror
     Fabry Perot cavity. Takes as input the (power) transmissivity
     and loss of the input and output couplers.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    printInfo: bool
+        If True, prints out some useful info for debugging. Defaults to False
+
+    Returns:
+    ---------
+    refl: complex
+        Complex amplitude reflectivity
+
+
     '''
     ti = IFO.ti
     te = IFO.te
@@ -202,6 +218,19 @@ def PRG(IFO,  printInfo=False):
     '''
     Function to calculate the RPG for a given arm reflectivity
     and PRM (power) transmissivity.
+
+    Parameters:
+    ------------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    printInfo: bool
+        If True, prints out some useful info for debugging. Defaults to False
+
+    Returns:
+    ---------
+    Gp: float
+        Power (not amplitude) recycling gain.
+    
     '''
     tp = IFO.tp
     rp = IFO.rp
@@ -210,14 +239,39 @@ def PRG(IFO,  printInfo=False):
     if printInfo:
         print('PRG is {} for Tp= {} %, Rarm = {} %'.format(round(gp**2, 3), round(100*tp**2,3), round(100*rarm**2,3)))
     return gp**2
+
 def armPole(IFO):
     '''
-    Computes the pole frequency [Hz] of a single arm cavity 
+    Computes the pole frequency [Hz] of a single arm cavity.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+
+    Returns:
+    ---------
+    pole: float
+        Arm cavity pole frequency [Hz], assuming Fabry-Perot arm cavities in a DRFPMI config.
     '''
     return scc.c*np.log(1/(IFO.ri*IFO.re))/2/IFO.larm/2/np.pi
 def hSQL(IFO,ff):
     '''
-    Computes the SQL [1/rtHz] for GW detection at frequency ff [Hz]
+    Computes the SQL [1/rtHz] for GW detection at frequency ff [Hz].
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ff: float or array_like
+        Frequency vector [Hz] on which the SQL is to be evaluated.
+
+    Returns:
+    ---------
+    SQL: float or array_like
+        Standard quantum limit sensitivity evaluated for a DRFPMI-type interferometer in strain units [1/rtHz].
+        Depends only on the mass of the mirrors and the length of the arm cavities.
+        Calculated according to 2.12 of BnC.
     '''
     omega = 2*np.pi*ff
     return np.sqrt(8*scc.hbar/IFO.m_TM/omega**2/IFO.larm**2)
@@ -225,6 +279,17 @@ def I0SQL(IFO):
     '''
     Computes power required by CONVENTIONAL (i.e. non SR) IFO to reach SQL 
     at a GW frequency equal to the arm cavity pole. 
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    
+    Returns:
+    ---------
+    I0: float
+        Power [W] requried in a PRFPMI config in order to reach the SQL at the arm cavity pole frequency.
+        Calculated according to 2.14 in BnC.
     '''
     gam = 2*np.pi*armPole(IFO)
     return IFO.m_TM * IFO.larm**2 * gam**4 / 4 / (2*np.pi*scc.c/IFO.lam)
@@ -233,6 +298,19 @@ def kappa(IFO,ff):
     '''
     Calculates the optomechanical coupling 
     at a frequency ff [Hz]
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ff: float or array_like
+        Frequency vector [Hz] on which the optomechanical coupling factor is to be evaluated.
+
+    Returns:
+    --------
+    kappa: float or array_like
+        Optomechanical coupling (a.k.a. Kimble factor), calculated according to 2.13 in BnC.
+    
     '''
     omega = 2*np.pi*ff
     wp = 2*np.pi*armPole(IFO)
@@ -241,22 +319,70 @@ def kappa(IFO,ff):
     gp = PRG(IFO)
     I0 = IFO.Pin * gp
     return 2*(I0/isq)*wp**4 / (omega**2 * (wp**2 + omega**2))
+
 def beta(IFO,ff):
     '''
-    Calculates the net phase gain for the sideband in the arm cavity
+    Calculates the net phase gain for the sideband in the arm cavity.
+
+    Parameters:
+    ------------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ff: float or array_like
+        Frequency vector [Hz] on which the phase gain is to be evaluated.
+
+    Returns:
+    ---------
+    beta: float or array_like
+        Net phase gain [rad] of the GW signal sideband while in the arm cavity, 
+        see just after 2.11 in BnC.
     '''
     omega = 2*np.pi*ff
     wp = 2*np.pi*armPole(IFO)
     return np.arctan(omega/wp)
+
 def eps(IFO):
     '''
     Calculates the quantity epsilon given ITM/ETM losses and ITM power transmissivity.
+    
+    Parameters:
+    ------------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    
+    Returns:
+    --------
+    epsilon: float
+        Power loss in arm cavity relative to the ITM transmission. See just after 5.2 in BnC.
     '''
     return 2*(IFO.Litm+IFO.Letm)/IFO.T_I
+
 def Cmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the C matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    C11: float or array_like
+        The 11-th element of the C-matrix for a lossy DRFPMI. See Eq 5.8 in BnC. 
+    C12: float or array_like
+        The 12-th element of the C-matrix for a lossy DRFPMI. See Eq 5.8 in BnC. 
+    C21: float or array_like
+        The 21-th element of the C-matrix for a lossy DRFPMI. See Eq 5.8 in BnC. 
+    C22: float or array_like
+        The 22-th element of the C-matrix for a lossy DRFPMI. See Eq 5.8 in BnC. 
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -276,10 +402,29 @@ def Cmatrix_lossy(IFO,ph,ff,Lpd=0):
                              (epsilon*np.cos(phi)/2)*(K*np.cos(phi)*(3+np.exp(2j*bb)) - 4*np.sin(phi)*np.cos(bb)**2) 
                             + (Lsr/2)*(-np.sin(2*phi) + K*np.cos(phi)**2) )
     return C11,C12,C21,C22
+
 def Dmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the D matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
+    
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    D11: float or array_like
+        The 11-th element of the D-matrix for a lossy DRFPMI. See Eq 5.9 in BnC. 
+    D21: float or array_like
+        The 21-th element of the D-matrix for a lossy DRFPMI. See Eq 5.9 in BnC. 
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -293,10 +438,33 @@ def Dmatrix_lossy(IFO,ph,ff,Lpd=0):
     D2 = np.sqrt(1.-Lpd)* ( -(-1+rs*np.exp(2j*bb))*np.cos(phi) + (epsilon*np.cos(phi)/4)*(-3 + rs + 2*rs*np.exp(4j*bb) + np.exp(2j*bb)*(-1 + 5*rs)) 
                           + Lsr*np.exp(2j*bb)*rs*np.cos(phi)/2 )
     return D1,D2
+
 def Pmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the P matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    P11: float or array_like
+        The 11-th element of the P-matrix for a lossy DRFPMI. See Eq 5.10 in BnC. 
+    P12: float or array_like
+        The 12-th element of the P-matrix for a lossy DRFPMI. See Eq 5.10 in BnC. 
+    P21: float or array_like
+        The 21-th element of the P-matrix for a lossy DRFPMI. See Eq 5.10 in BnC. 
+    P22: float or array_like
+        The 22-th element of the P-matrix for a lossy DRFPMI. See Eq 5.10 in BnC. 
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -310,10 +478,33 @@ def Pmatrix_lossy(IFO,ph,ff,Lpd=0):
     P12 = -np.sqrt(1-Lpd)*np.sqrt(Lsr)*ts*np.sin(phi)*(2*np.cos(phi) + K*np.sin(phi))
     P21 = np.sqrt(1-Lpd)*np.sqrt(Lsr)*ts*np.cos(phi)*(2*np.sin(phi) - K*np.cos(phi))
     return P11,P12,P21,P22
+
 def Qmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the Q matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    Q11: float or array_like
+        The 11-th element of the Q-matrix for a lossy DRFPMI. See Eq 5.11 in BnC. 
+    Q12: float or array_like
+        The 12-th element of the Q-matrix for a lossy DRFPMI. See Eq 5.11 in BnC. 
+    Q21: float or array_like
+        The 21-th element of the Q-matrix for a lossy DRFPMI. See Eq 5.11 in BnC. 
+    Q22: float or array_like
+        The 22-th element of the Q-matrix for a lossy DRFPMI. See Eq 5.11 in BnC. 
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -329,10 +520,33 @@ def Qmatrix_lossy(IFO,ph,ff,Lpd=0):
     Q12 = np.zeros(len(Q11))
     Q21 = np.zeros(len(Q11))
     return Q11, Q12, Q21, Q22
+
 def Nmatrix_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates the N matrix for a lossy SR interferometer, assuming readout chain losses of Lpd.
     Returns matrix elements row-wise.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    N11: float or array_like
+        The 11-th element of the N-matrix for a lossy DRFPMI. See Eq 5.12 in BnC. 
+    N12: float or array_like
+        The 12-th element of the N-matrix for a lossy DRFPMI. See Eq 5.12 in BnC. 
+    N21: float or array_like
+        The 21-th element of the N-matrix for a lossy DRFPMI. See Eq 5.12 in BnC. 
+    N22: float or array_like
+        The 22-th element of the N-matrix for a lossy DRFPMI. See Eq 5.12 in BnC. 
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -347,10 +561,31 @@ def Nmatrix_lossy(IFO,ph,ff,Lpd=0):
     N12 = -ts*np.sqrt((1.-Lpd)*2*epsilon) * (np.exp(-1j*bb) + rs*np.exp(1j*bb)) * np.cos(bb) * np.sin(phi)
     N21 = ts*np.sqrt((1.-Lpd)*epsilon/2)* ( -K*np.cos(phi)*(1+rs) + 2*np.cos(bb*(np.exp(-1j*bb) + rs*np.exp(1j*bb)))*np.cos(bb)*np.sin(phi) )
     return N11,N12,N21,N22
+
 def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0):
     '''
     Computes the ASD for homodyne readout at homodyne angle zeta (degrees)
     for an SRC tuning of ph [deg] for a LOSSY SR interferometer
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    zz: float
+        Homodyne [degrees]. 0 corresponds to the phase quadrature, and 90 corresponds to the amplitude quadrature, per 
+        the BnC convention (interferometer pump field is in the amplitude quadrature).
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+
+    Returns:
+    ---------
+    Sh: float or array_like
+        Signal-referred Power Spectral Density (PSD) of the interferometer noise,
+        in Strain^2 units [1/Hz^2]. Calculated according to Eq 5.13 in BnC.
     '''
     zeta = np.deg2rad(zz)
     K = kappa(IFO,ff)
@@ -367,10 +602,12 @@ def homodyneASD_lossy(IFO,ph,zz,ff,Lpd=0):
     num = num * hsql**2
     den = 2 * K * IFO.ts**2 * np.abs(D1*np.sin(zeta) + D2*np.cos(zeta))**2
     return np.sqrt(num/den)
+
 def vacuumNoise(IFO,ph,zz,ff,Lpd=0):
     '''
     Computes the vacuum noises at homodyne angle zz (degrees)
     for an SRC tuning of ph [deg] for a LOSSY SR interferometer.
+    
     Parameters:
     -----------
     IFO: IFO class object
@@ -418,9 +655,27 @@ def vacuumNoise(IFO,ph,zz,ff,Lpd=0):
     nReadout = np.sqrt(b1 + b2)
     nTot = np.sqrt(nAS**2 + nArm**2 + nSRC**2 + nReadout**2)
     return nAS, nArm, nSRC, nReadout, nTot
+
 def M_lossy(IFO,ph,ff,Lpd=0):
     '''
     Calculates M for a lossy SR interferometer, assuming readout chain losses of Lpd.
+    
+    Parameters:
+    -----------
+    IFO: IFO class object
+        Class object with all the IFO params
+    ph: float
+        SRC deturning [deg]
+    ff: float or array_like
+        Frequency vector [Hz]
+    Lpd: float
+        Photodetection/readout loss.
+
+    Returns:
+    ---------
+    M: float or array_like
+        Overall normalization matrix for the quantum-noise transfer matrices.
+        Calculated according to Eq 5.7 in BnC.
     '''
     phi = np.deg2rad(ph) 
     bb = beta(IFO,ff)
@@ -434,6 +689,80 @@ def M_lossy(IFO,ph,ff,Lpd=0):
          epsilon*rs*np.exp(2j*bb)*(2*np.cos(bb)**2 *(-rs*np.exp(2j*bb) + np.cos(2*phi))
                                       + (K/2)*(3+np.exp(2j*bb))*np.sin(2*phi)))
     return M
+
+def DARM_TF(IFO,ph,zz,ff,Lpd=0.1,lossy=True):
+    '''
+    Calculates the DARM transfer function using lossless/lossy BnC I/O relations.
+    Note that this is in sqrt(nQuanta) units. For converting to physical E-field
+    units, i.e. sqrt(W), you have to multiply output of this function by 
+    sqrt(2*hbar*w0).
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    zz: float
+        Homodyne [degrees]. 0 corresponds to the phase quadrature, and 90 corresponds to the amplitude quadrature, per 
+        the BnC convention (interferometer pump field is in the amplitude quadrature).
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+    lossy: bool
+        Includes the effect of optical loss in (i) arm cavities, (ii) Signal Recycling Cavity,
+        and (iii) Readout chain if True. Defaults to True.
+
+    Returns:
+    ---------
+    TF: float or array_like
+        Transfer function from differential arm strain (not displacement) to readout [sqrt(nquanta)/strain].
+    '''
+    zeta = np.deg2rad(zz)
+    w0 = 2*np.pi*scc.c/(1064e-9)
+    hsql = hSQL(IFO,ff)
+    K = kappa(IFO,ff)
+    bb = beta(IFO,ff)
+    ts = IFO.ts
+    if lossy:
+        D1,D2 = Dmatrix_lossy(IFO,ph,ff,Lpd)
+        MM = M_lossy(IFO,ph,ff,Lpd)
+    else:
+        D1,D2 = Dmatrix(IFO,ph,ff)
+        MM = M_lossless(IFO,ph,ff)
+    num = ts*np.exp(1j*bb)*np.sqrt(2*K)*(D1*np.sin(zeta)+D2*np.cos(zeta))
+    den = MM*hsql
+    return (num/den)
+
+def unsqueezedVac(IFO, ph, zz, ff, Lpd=0.1, lossy=True):
+    '''
+    Compute the equivalent displacement noise of unsqueezed vacuum.
+
+    Parameters:
+    -----------
+    IFO: ifo class object
+        BnC IFO class object that defines other parameters required for calculations.
+    ph: float
+        SRC tuning [degrees]. 0 corresponds to ESR, and 90 corresponds to RSE.
+    zz: float
+        Homodyne [degrees]. 0 corresponds to the phase quadrature, and 90 corresponds to the amplitude quadrature, per 
+        the BnC convention (interferometer pump field is in the amplitude quadrature).
+    ff: float or array_like
+        Frequency vector [Hz] on which the matrix is to be evaluated.
+    Lpd: float
+        Power loss downstream of the SRM.
+    lossy: bool
+        Includes the effect of optical loss in (i) arm cavities, (ii) Signal Recycling Cavity,
+        and (iii) Readout chain if True. Defaults to True.
+
+    Returns:
+    ---------
+    unsqVac: float or array_like
+        Signal-referred noise spectral density for unsqueezed vacuum entering the AS port of the interferometer.
+    '''
+    Ezeta = DARM_TF(IFO, ph, zz, ff, Lpd=Lpd, lossy=lossy)
+    return(IFO.larm / np.abs(Ezeta))
 
 def plotTF(fig, ax, mat, ff, magOrPhase='mag'):
     '''

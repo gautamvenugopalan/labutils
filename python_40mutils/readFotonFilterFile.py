@@ -95,4 +95,51 @@ def emptyFilter():
     return fb
     
 
-
+def fotonTF(filtFile, ctrlMod, enabledFilts, magAx=None, phAx=None, Fs=2**14, ff=np.logspace(0,4,801)):
+    '''
+    A function to visualize the freqz response of a foton filter.
+    Useful to see where phase is being eaten up (for example).
+    Also more generically for extracting composite TFs.
+    
+    Parameters:
+    ------------
+    filtFile: str
+        Path to the Foton filter file.
+    ctrlMod: str
+        Name of the filter module
+    enabledFilts: array_like
+        List of filter banks that are enabled.
+    magAx: matplotlib axis
+        Axis to plot the magnitude on. Defaults to None.
+    phAx: matplotlib axis
+        Axis to plot the phase on. Defaults to None.
+    Fs: int
+        Sampling frequency. Defaults to 2**14 (16384 Hz).
+    ff: array_like
+        Frequency vector. Defaults to np.logspace(0,4,801)
+        
+    Returns:
+    --------
+    digitalFilt: (N x 6) array
+        Array of SOS coefficients, where N is the number
+        of SOS filters.
+    '''
+    filtDict = readFilterFile(filtFile)
+    for jj, ii in enumerate(enabledFilts):
+        if jj == 0:
+            digitalFilt = filtDict[ctrlMod][ii]['sosCoeffs']
+        else:
+            digitalFilt = np.vstack((digitalFilt, filtDict[ctrlMod][ii]['sosCoeffs']))
+        if magAx is not None:
+            ww, hh = sig.sosfreqz(filtDict[ctrlMod][ii]['sosCoeffs'], worN=2*np.pi*ff/Fs)
+            magAx.loglog(ff, np.abs(hh), label='FM{}'.format(ii+1), alpha=0.7, linestyle='--')
+        if phAx is not None:
+            ww, hh = sig.sosfreqz(filtDict[ctrlMod][ii]['sosCoeffs'], worN=2*np.pi*ff/Fs)
+            phAx.semilogx(ff, np.rad2deg(np.angle(hh)), label='FM{}'.format(ii+1), alpha=0.7, linestyle='--')
+    if magAx is not None:
+        ww, hh = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff/(Fs))
+        magAx.loglog(ff, np.abs(hh), label='Composite')
+    if phAx is not None:
+        ww, hh = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff/(Fs))
+        phAx.semilogx(ff, np.rad2deg(np.angle(hh)), label='Composite')
+    return(digitalFilt)

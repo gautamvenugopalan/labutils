@@ -123,6 +123,8 @@ def fotonTF(filtFile, ctrlMod, enabledFilts, magAx=None, phAx=None, Fs=2**14, ff
     digitalFilt: (N x 6) array
         Array of SOS coefficients, where N is the number
         of SOS filters.
+    filtDict: dict
+        A dictionary of the filters for the chosen ctrlMod.
     '''
     filtDict = readFilterFile(filtFile)
     for jj, ii in enumerate(enabledFilts):
@@ -142,4 +144,4 @@ def fotonTF(filtFile, ctrlMod, enabledFilts, magAx=None, phAx=None, Fs=2**14, ff
     if phAx is not None:
         ww, hh = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff/(Fs))
         phAx.semilogx(ff, np.rad2deg(np.angle(hh)), label='Composite')
-    return(digitalFilt)
+    return(digitalFilt, filtDict)

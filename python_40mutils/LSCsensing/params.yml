@@ -1,0 +1,45 @@
+ndsServer: 131.215.115.200
+ndsPort: 31200
+filename: DRMI1f_noArms_Nov17
+plottitle: DRMI 1F no arms, November 17
+tStart: 1226556650
+duration: 500
+fs: 2**14
+tfft: 5
+PDs:
+    REFL11:
+        gain: 18
+        angle: 18.0
+        plotorder: 0
+    REFL55:
+        gain: 18
+        angle: -160.0
+        plotorder: 1
+    REFL33:
+        gain: 30
+        angle: 136
+        plotorder: 3
+    REFL165:
+        gain: 24
+        angle: -86.0
+        plotorder: 4
+    AS55:
+        gain: 6
+        angle: -92.0
+        plotorder: 2
+DoFs:
+    MICH:
+        freq: 311.1
+        act: BS
+        mconv: 11.45e-9
+        plotorder: 2
+    PRCL:
+        freq: 313.31
+        act: PRM
+        mconv: 4.66e-9
+        plotorder: 1
+    SRCL:
+        freq: 315.17
+        act: SRM
+        mconv: 10.51e-9
+        plotorder: 3

@@ -17,10 +17,10 @@ args = parser.parse_args()
 # Global setup
 paramFile = args.paramFile[0]
 par = importParams(paramFile)
-if par['tStart'] not in os.listdir(globDataDir):
+if str(par['tStart']) not in os.listdir(globDataDir):
     logging.debug('Making subdirectory for {} in {}'.format(par['tStart'], globDataDir))
     os.mkdir(globDataDir+str(par['tStart']))
-if par['tStart'] not in os.listdir(globFigDir):
+if str(par['tStart']) not in os.listdir(globFigDir):
     logging.debug('Making subdirectory for {} in {}'.format(par['tStart'], globFigDir))
     os.mkdir(globFigDir+str(par['tStart']))
 # Define the directory Macros
@@ -41,4 +41,4 @@ demodData(paramFile)
 plotData(paramFile, saveFig=True)
 
 # Finally, print the matrix that should go into the EPICS screen
-logging.info('Computed matrix that will best diagonalize the sensor signals is')
+#logging.info('Computed matrix that will best diagonalize the sensor signals is')

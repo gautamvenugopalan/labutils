@@ -8,7 +8,7 @@ from matplotlib.patches import Ellipse
 import nds2
 import nbutils as nbu
 import yaml
-import glob
+#import glob
 import h5py
 import scipy.signal as sig
 import timeit
@@ -62,7 +62,8 @@ def dlData(paramFile):
         Status of download
     '''
     par = importParams(paramFile)
-    if par['filename']+'.hdf5' in glob.glob('*hdf5'):
+    #if par['filename']+'.hdf5' in glob.glob(dataDir+'*hdf5'):
+    if par['filename']+'.hdf5' in os.listdir(dataDir):
         print('Data file already exists...')
     else:
         DoFdict = par['DoFs']
@@ -75,7 +76,7 @@ def dlData(paramFile):
         except:
             print('Cant open NDS connection ')
             return
-        with h5py.File(par['filename']+'.hdf5','w') as f:
+        with h5py.File(dataDir+par['filename']+'.hdf5','w') as f:
             # Download the LSC photodiode data
             for PD, PDd in tqdm.tqdm(PDdict.items()):
                 Ichan = 'C1:LSC-'+PD+'_I_ERR_DQ'
@@ -182,7 +183,7 @@ def demodStats(dat):
   
 def demodData(paramFile):
     par = importParams(paramFile)
-    datFile = par['filename']+'.hdf5'
+    datFile = dataDir+par['filename']+'.hdf5'
     # Open the HDF5 file
     f = h5py.File(datFile,'r')
     DoFdict = par['DoFs']
@@ -263,14 +264,14 @@ def plotData(paramFile, saveFig=False):
 
     for iii in range(n_PDs):
         if iii<3:
-            ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6)
+            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6)
             ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
             ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
             #Add the uncertainty ellipses
-            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-                    width=10*np.abs(phaseU[iii][2]),
-                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-                    angle=0.,alpha=0.4, color='#1f77b4'))
+            #ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+            #        width=10*np.abs(phaseU[iii][2]),
+            #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+            #        angle=0.,alpha=0.4, color='#1f77b4'))
             ax[0,iii].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
@@ -287,7 +288,7 @@ def plotData(paramFile, saveFig=False):
             ax[0,iii].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
             ax[0,iii].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
         else:
-            ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6)
+            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6)
             ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
             ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
             ax[1,iii-3].set_title(physPDs[iii],fontsize=20, fontweight='bold',y=1.15)
@@ -299,10 +300,10 @@ def plotData(paramFile, saveFig=False):
             ax[1,iii-3].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
             ax[1,iii-3].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
             #Add the uncertainty ellipses
-            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-                    width=10*np.abs(phaseU[iii][2]),
-                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-                    angle=0.,alpha=0.4, color='#1f77b4'))
+            #ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+            #        width=10*np.abs(phaseU[iii][2]),
+            #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+            #        angle=0.,alpha=0.4, color='#1f77b4'))
             ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
@@ -321,8 +322,8 @@ def plotData(paramFile, saveFig=False):
     #Print the nominal values of the sensing matrix onto the plot.
     mich = mag[3][0] * np.abs(np.cos(phase[4][0] + np.deg2rad(90) + np.deg2rad(PDdict['AS55']['angle']))) #MICH in AS55_Q
     prcl = mag[0][1] * np.abs(np.cos(phase[0][1])) #PRCL in REFL11_I
-    srcl = mag[4][2] * np.abs(np.cos(phase[1][2])) #SRCL in REFL55_I
-    ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$\n$\mathrm{SRCL}_{\mathrm{REFL55I}} = %.3E  \mathrm{V/m}$\n'% (mich,prcl,srcl),fontsize=12, weight='extra bold')
+    #srcl = mag[4][2] * np.abs(np.cos(phase[1][2])) #SRCL in REFL55_I
+    #ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$\n$\mathrm{SRCL}_{\mathrm{REFL55I}} = %.3E  \mathrm{V/m}$\n'% (mich,prcl,srcl),fontsize=12, weight='extra bold')
     if saveFig:
         figs.savefig(figDir+'sensMat.pdf', bbox_inches='tight')
         print('Sensing matrix pdf saved to {}'.format(figDir+'sensMat.pdf'))

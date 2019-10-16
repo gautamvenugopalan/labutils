@@ -19,6 +19,26 @@ import pickle
 import datetime, os
 import socket
 import tqdm
+import logging
+
+
+logging.basicConfig(
+    level=os.getenv('LOG_LEVEL', 'INFO'),
+    format="%(levelname)s \n%(message)s")
+
+# Directory setup
+globFigDir = 'Figures/'
+globDataDir = 'Data/'
+if globFigDir.strip('/') not in os.listdir():
+    #print('Figures directory not found, making it...')
+    logging.debug('Figures directory not found, making it...')
+    os.mkdir(globFigDir)
+if globDataDir.strip('/') not in os.listdir():
+    #print('Data directory not found, making it...')
+    logging.debug('Data directory not found, making it...')
+    os.mkdir(globDataDir)
+
+
 
 # Read in the YAML parameter file
 def importParams(paramFile):

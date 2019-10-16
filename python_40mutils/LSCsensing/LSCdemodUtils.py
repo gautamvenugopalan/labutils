@@ -17,6 +17,8 @@ import uncertainties as uc
 from uncertainties import umath
 import pickle
 import datetime, os
+import socket
+import tqdm
 
 # Read in the YAML parameter file
 def importParams(paramFile):
@@ -28,7 +30,7 @@ def importParams(paramFile):
         params: A dictionary with the names and parameters
     '''
     with open(paramFile,'r') as f:
-        params = yaml.load(f)
+        params = yaml.safe_load(f)
     return params
 
 def dlData(paramFile):
@@ -55,7 +57,7 @@ def dlData(paramFile):
             return
         with h5py.File(par['filename']+'.hdf5','w') as f:
             # Download the LSC photodiode data
-            for PD, PDd in PDdict.items():
+            for PD, PDd in tqdm.tqdm(PDdict.items()):
                 Ichan = 'C1:LSC-'+PD+'_I_ERR_DQ'
                 Qchan = 'C1:LSC-'+PD+'_Q_ERR_DQ'
                 dat = conn.fetch(par['tStart'],par['tStart']+par['duration'],
@@ -208,3 +210,100 @@ def demodData(paramFile):
         pickle.dump(PDresults,ff)
     print('Data saved... Time to plot...')
     return 
+
+def plotData(paramFile, saveFig=False):
+    par = importParams(paramFile)
+    demodFile = par['filename']+'.p'
+    with open(demodFile,'rb') as f:
+        PDresults = pickle.load(f)
+    DoFdict = par['DoFs']
+    PDdict = par['PDs']
+    #Pull the info from the demodulation and package it into arrays.
+    n_PDs = len(PDdict.keys())
+    physPDs = list(par['PDs'].keys())
+    mag = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    phase = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    magU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    phaseU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    for kk, PD in enumerate(PDdict.keys()):
+        result = PDresults[PD]
+        for ii, dof in enumerate(DoFdict.keys()):
+            conv = 10/2**15  # ADC Volts/count conversion
+            conv /= 10**(PDdict[PD]['gain']/20.)  # PD whitening gain
+            conv /= DoFdict[dof]['mconv']*DoFdict[dof]['freq']**-2  # Actuator meters/DAC count
+            mag[kk,ii] = result[dof][0].nominal_value * conv
+            phase[kk,ii] = result[dof][1].nominal_value - np.deg2rad(PDdict[PD]['angle'])
+            magU[kk,ii] = result[dof][0].std_dev * conv
+            phaseU[kk,ii] = result[dof][1].std_dev
+    #Make the plot
+    plt.style.use('default')
+    rc('font', weight=900)
+    thetaticks = np.arange(0,360,45)
+    figs,ax = plt.subplots(2,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+
+    for iii in range(n_PDs):
+        if iii<3:
+            ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6)
+            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
+            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
+            #Add the uncertainty ellipses
+            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+                    width=10*np.abs(phaseU[iii][2]),
+                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+                    angle=0.,alpha=0.4, color='#1f77b4'))
+            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
+                    width=10*np.abs(phaseU[iii][0]),
+                    height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
+                    angle=0.,alpha=0.4, color='#ff7f0e'))
+            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
+                    width=10*np.abs(phaseU[iii][1]),
+                    height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
+                    angle=0.,alpha=0.4, color='#2ca02c'))
+            ax[0,iii].set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
+            ax[0,iii].tick_params(labelsize=16)
+            ax[0,iii].set_thetagrids(thetaticks)#,frac=1.2)
+            ax[0,iii].grid(linestyle='--', linewidth=0.7, alpha = 0.9)
+            #Add a line indicating the I and Q phases for this photodiode
+            ax[0,iii].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
+            ax[0,iii].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
+        else:
+            ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6)
+            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
+            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
+            ax[1,iii-3].set_title(physPDs[iii],fontsize=20, fontweight='bold',y=1.15)
+            #ax[1,iii-3].set_yticklabels([])
+            ax[1,iii-3].tick_params(labelsize=16)
+            ax[1,iii-3].set_thetagrids(thetaticks)#,frac=1.2)
+            #ax[1,iii-3].set_yticks(range(1,10))
+            ax[1,iii-3].grid(linestyle='--', linewidth=0.7, alpha = 0.9)
+            ax[1,iii-3].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
+            ax[1,iii-3].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
+            #Add the uncertainty ellipses
+            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+                    width=10*np.abs(phaseU[iii][2]),
+                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+                    angle=0.,alpha=0.4, color='#1f77b4'))
+            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
+                    width=10*np.abs(phaseU[iii][0]),
+                    height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
+                    angle=0.,alpha=0.4, color='#ff7f0e'))
+            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
+                    width=10*np.abs(phaseU[iii][1]),
+                    height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
+                    angle=0.,alpha=0.4, color='#2ca02c'))
+
+    ax[1,2].axis('off')
+    figs.subplots_adjust(hspace=0.5, wspace=0.33)
+    handles, labels = ax[1,1].get_legend_handles_labels()
+    legend = ax[1,2].legend(handles,labels,loc='center',fontsize=20)
+    ax[1,2].text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [V/m].\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
+
+    #Print the nominal values of the sensing matrix onto the plot.
+    mich = mag[3][0] * np.abs(np.cos(phase[4][0] + np.deg2rad(90) + np.deg2rad(PDdict['AS55']['angle']))) #MICH in AS55_Q
+    prcl = mag[0][1] * np.abs(np.cos(phase[0][1])) #PRCL in REFL11_I
+    srcl = mag[4][2] * np.abs(np.cos(phase[1][2])) #SRCL in REFL55_I
+    ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$\n$\mathrm{SRCL}_{\mathrm{REFL55I}} = %.3E  \mathrm{V/m}$\n'% (mich,prcl,srcl),fontsize=12, weight='extra bold')
+    if saveFig:
+        figs.savefig(figDir+'sensMat.pdf', bbox_inches='tight')
+        print('Sensing matrix pdf saved to {}'.format(figDir+'sensMat.pdf'))
+    return

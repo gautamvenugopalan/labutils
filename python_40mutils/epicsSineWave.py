@@ -2,6 +2,7 @@ from __future__ import division, print_function
 import numpy as np
 import ezca
 import signal, sys
+from time import sleep
 
 z = ezca.Ezca(prefix='C1:')
 
@@ -33,6 +34,7 @@ def main():
     while True:
         for yy in y:
             z.write(chan, yy)
+	    #sleep(0.05)
     return
 
 

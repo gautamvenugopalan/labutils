@@ -124,14 +124,14 @@ def fft(dat, fDemod, fs=2**14, tFFT=5, win=('tukey',0.25),
         Input to scipy.signal detrend function. Defaults to 'constant'
     median: Bool, optional
         Median averaging of final result. Defaults to False.
-        
+
     Returns:
     --------
     result: complex
         Result of the digital demodulation.
     TODO: error handling...
     '''
-    
+
     dat = np.asarray(dat)
     if dat.size==0:
         return(np.empty(dat.shape[-1]))
@@ -140,7 +140,7 @@ def fft(dat, fDemod, fs=2**14, tFFT=5, win=('tukey',0.25),
     # Make the LO time series
     tt = np.arange(len(dat))/fs
     LO = np.exp(-1j*2*np.pi*fDemod*tt)
-    
+
     # Compute the step to take as we stride through the segments
     step = nperseg - nOverlap
     segShape = ((dat.shape[-1]-nOverlap)//step, nperseg)
@@ -148,10 +148,10 @@ def fft(dat, fDemod, fs=2**14, tFFT=5, win=('tukey',0.25),
     LOStrides = (step*LO.strides[-1], LO.strides[-1])
     dS = np.lib.stride_tricks.as_strided(dat, shape=segShape, strides=datStrides)
     LOS = np.lib.stride_tricks.as_strided(LO, shape=segShape, strides=LOStrides)
-    
+
     # Detrend the data
     data = sig.detrend(dS, type=detrend)
-    
+
     # Demodulate the (windowed) data
     wind = sig.get_window(win,nperseg)
     result = data * wind * LOS
@@ -164,7 +164,7 @@ def demodStats(dat):
     '''
     Computes some uncertainties on the
     demodulated complex amplitude
-    
+
     Parameters:
     -----------
         dat: array like
@@ -180,7 +180,7 @@ def demodStats(dat):
     stats_imag = uc.ufloat(np.mean(data.imag), np.std(data.imag)/np.sqrt(N))
     tot_unc = [(stats_real**2 + stats_imag**2)**0.5, umath.atan2(stats_imag,stats_real)]
     return tot_unc
-  
+
 def demodData(paramFile):
     par = importParams(paramFile)
     datFile = dataDir+par['filename']+'.hdf5'
@@ -230,9 +230,9 @@ def demodData(paramFile):
     with open(par['filename']+'.p','wb') as ff:
         pickle.dump(PDresults,ff)
     print('Data saved... Time to plot...')
-    return 
+    return
 
-def plotData(paramFile, saveFig=False):
+def plotData(paramFile, saveFig=False, PRCLcolor='#008fd5', MICHcolor='#fc4f30', SRCLcolor='#e5ae38'):
     par = importParams(paramFile)
     demodFile = par['filename']+'.p'
     with open(demodFile,'rb') as f:
@@ -264,22 +264,22 @@ def plotData(paramFile, saveFig=False):
 
     for iii in range(n_PDs):
         if iii<3:
-            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6)
-            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
-            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
+            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6, color=SRCLcolor)
+            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=MICHcolor)
+            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=PRCLcolor)
             #Add the uncertainty ellipses
             #ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
             #        width=10*np.abs(phaseU[iii][2]),
             #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color='#1f77b4'))
+            #        angle=0.,alpha=0.4, color=SRCLcolor))
             ax[0,iii].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color='#ff7f0e'))
+                    angle=0.,alpha=0.4, color=MICHcolor))
             ax[0,iii].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
                     width=10*np.abs(phaseU[iii][1]),
                     height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color='#2ca02c'))
+                    angle=0.,alpha=0.4, color=PRCLcolor))
             ax[0,iii].set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
             ax[0,iii].tick_params(labelsize=16)
             ax[0,iii].set_thetagrids(thetaticks)#,frac=1.2)
@@ -288,9 +288,9 @@ def plotData(paramFile, saveFig=False):
             ax[0,iii].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
             ax[0,iii].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
         else:
-            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6)
-            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6)
-            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6)
+            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6, color=SRCLcolor)
+            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=MICHcolor)
+            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=PRCLcolor)
             ax[1,iii-3].set_title(physPDs[iii],fontsize=20, fontweight='bold',y=1.15)
             #ax[1,iii-3].set_yticklabels([])
             ax[1,iii-3].tick_params(labelsize=16)
@@ -303,15 +303,15 @@ def plotData(paramFile, saveFig=False):
             #ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
             #        width=10*np.abs(phaseU[iii][2]),
             #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color='#1f77b4'))
+            #        angle=0.,alpha=0.4, color=SRCLcolor))
             ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color='#ff7f0e'))
+                    angle=0.,alpha=0.4, color=MICHcolor))
             ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
                     width=10*np.abs(phaseU[iii][1]),
                     height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color='#2ca02c'))
+                    angle=0.,alpha=0.4, color=PRCLcolor))
 
     ax[1,2].axis('off')
     figs.subplots_adjust(hspace=0.5, wspace=0.33)
@@ -324,7 +324,8 @@ def plotData(paramFile, saveFig=False):
     prcl = mag[0][1] * np.abs(np.cos(phase[0][1])) #PRCL in REFL11_I
     #srcl = mag[4][2] * np.abs(np.cos(phase[1][2])) #SRCL in REFL55_I
     #ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$\n$\mathrm{SRCL}_{\mathrm{REFL55I}} = %.3E  \mathrm{V/m}$\n'% (mich,prcl,srcl),fontsize=12, weight='extra bold')
+    ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$ \n'% (mich,prcl),fontsize=12, weight='extra bold')
     if saveFig:
-        figs.savefig(figDir+'sensMat.pdf', bbox_inches='tight')
-        print('Sensing matrix pdf saved to {}'.format(figDir+'sensMat.pdf'))
+        figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')
+        print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))
     return

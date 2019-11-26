@@ -184,8 +184,14 @@ def demodStats(dat):
 def demodData(paramFile):
     par = importParams(paramFile)
     datFile = dataDir+par['filename']+'.hdf5'
+    demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
     # Open the HDF5 file
     f = h5py.File(datFile,'r')
+    # Delete the demod file to avoid any conflicts
+    if os.path.exists(demodFile):
+        print('Demod file exists, deleting it...')
+        os.remove(demodFile)
+    f2 = h5py.File(demodFile,'w')
     DoFdict = par['DoFs']
     PDdict = par['PDs']
     PDresults = {}
@@ -197,6 +203,8 @@ def demodData(paramFile):
         demod = fft(dofd['actData'], dofd['freq'], fs=fs, tFFT=tFFT)
         # Do an SNR check
         dofd['demodOut'] = demodStats(demod)
+        # Also save to the HDF5 file so that we can avoid pickling
+        f2.create_dataset(dof+'_demodOut', data=demod)
         if dofd['demodOut'][0].nominal_value / dofd['demodOut'][0].std_dev < 10:
             print('Poor SNR in '+ dof + 'actuator signal. Check demod frequency maybe?')
     # Repeat for the Photodiodes...
@@ -213,6 +221,9 @@ def demodData(paramFile):
                 # Demodulate the PD outputs
                 demod_I = fft(dat[:,0], dofd['freq'], fs=fs, tFFT=tFFT)
                 demod_Q = fft(dat[:,1], dofd['freq'], fs=fs, tFFT=tFFT)
+                # Also save to the HDF5 file so that we can avoid pickling
+                f2.create_dataset(PD+'_'+dof+'_demodOut_I', data=demod_I)
+                f2.create_dataset(PD+'_'+dof+'_demodOut_Q', data=demod_Q)
                 # Convert the cts/rtHz peak height into cts/m
                 demod_actuator = dofd['demodOut']
                 demod_I /= demod_actuator[0].nominal_value
@@ -223,16 +234,19 @@ def demodData(paramFile):
                 mag_I = np.abs(demod_I)*np.sign(np.mean(demod_I.real))
                 mag_Q = np.abs(demod_Q)*np.sign(np.mean(demod_Q.real))
                 PDresults[PD][dof] = demodStats(mag_I + 1j*mag_Q)
+                # Also save to the HDF5 file so that we can avoid pickling
+                f2.create_dataset(PD+'_'+dof+'_mag_I', data=mag_I)
+                f2.create_dataset(PD+'_'+dof+'_mag_Q', data=mag_Q)
             else:
                 print('Poor SNR of '+dof+' in '+PD+'! So Im not demodulating.')
     print('Demodulation complete - saving data to file...')
-    f.close()
     with open(par['filename']+'.p','wb') as ff:
         pickle.dump(PDresults,ff)
     print('Data saved... Time to plot...')
+    f.close()
     return
 
-def plotData(paramFile, saveFig=False, PRCLcolor='#008fd5', MICHcolor='#fc4f30', SRCLcolor='#e5ae38'):
+def plotData(paramFile, saveFig=False, dof1color='#008fd5', dof2color='#fc4f30', dof3color='#6d904f', dof4color='#e5ae38'):
     par = importParams(paramFile)
     demodFile = par['filename']+'.p'
     with open(demodFile,'rb') as f:
@@ -260,26 +274,34 @@ def plotData(paramFile, saveFig=False, PRCLcolor='#008fd5', MICHcolor='#fc4f30',
     plt.style.use('default')
     rc('font', weight=900)
     thetaticks = np.arange(0,360,45)
-    figs,ax = plt.subplots(2,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+    if len(PDdict) < 3:
+        figs,ax = plt.subplots(1,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+    else:
+        figs,ax = plt.subplots(2,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
 
     for iii in range(n_PDs):
         if iii<3:
-            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6, color=SRCLcolor)
-            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=MICHcolor)
-            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=PRCLcolor)
+            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6, color=dof4color)
+            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=dof2color)
+            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=dof1color)
+            ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='CARM',marker='.', markersize=6, color=dof3color)
             #Add the uncertainty ellipses
             #ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
             #        width=10*np.abs(phaseU[iii][2]),
             #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color=SRCLcolor))
+            #        angle=0.,alpha=0.4, color=dof4color))
             ax[0,iii].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color=MICHcolor))
+                    angle=0.,alpha=0.4, color=dof2color))
             ax[0,iii].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
                     width=10*np.abs(phaseU[iii][1]),
                     height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color=PRCLcolor))
+                    angle=0.,alpha=0.4, color=dof1color))
+            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+                    width=10*np.abs(phaseU[iii][2]),
+                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+                    angle=0.,alpha=0.4, color=dof3color))
             ax[0,iii].set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
             ax[0,iii].tick_params(labelsize=16)
             ax[0,iii].set_thetagrids(thetaticks)#,frac=1.2)
@@ -288,9 +310,10 @@ def plotData(paramFile, saveFig=False, PRCLcolor='#008fd5', MICHcolor='#fc4f30',
             ax[0,iii].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
             ax[0,iii].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
         else:
-            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6, color=SRCLcolor)
-            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=MICHcolor)
-            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=PRCLcolor)
+            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6, color=dof4color)
+            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=dof2color)
+            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=dof1color)
+            ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='CARM',marker='.', markersize=6, color=dof3color)
             ax[1,iii-3].set_title(physPDs[iii],fontsize=20, fontweight='bold',y=1.15)
             #ax[1,iii-3].set_yticklabels([])
             ax[1,iii-3].tick_params(labelsize=16)
@@ -303,15 +326,19 @@ def plotData(paramFile, saveFig=False, PRCLcolor='#008fd5', MICHcolor='#fc4f30',
             #ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
             #        width=10*np.abs(phaseU[iii][2]),
             #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color=SRCLcolor))
+            #        angle=0.,alpha=0.4, color=dof4color))
             ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
                     width=10*np.abs(phaseU[iii][0]),
                     height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color=MICHcolor))
+                    angle=0.,alpha=0.4, color=dof2color))
             ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
                     width=10*np.abs(phaseU[iii][1]),
                     height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color=PRCLcolor))
+                    angle=0.,alpha=0.4, color=dof1color))
+            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
+                    width=10*np.abs(phaseU[iii][2]),
+                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
+                    angle=0.,alpha=0.4, color=dof3color))
 
     ax[1,2].axis('off')
     figs.subplots_adjust(hspace=0.5, wspace=0.33)

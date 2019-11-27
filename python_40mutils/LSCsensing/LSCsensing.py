@@ -1,6 +1,7 @@
 import argparse
 import LSCdemodUtils as utils
 from LSCdemodUtils import *
+from cycler import cycler
 
 parser = argparse.ArgumentParser(description=
         '''Usage:
@@ -15,6 +16,8 @@ parser.add_argument('--paramFile', type=str, help='Path to the parameter file sp
 args = parser.parse_args()
 
 # Global setup
+customCycler = (cycler(color=['#30a2da','#fc4f30','#e5ae38','#6d904f','#8b8b8b']))
+plt.rc('axes', prop_cycle=customCycler)
 paramFile = args.paramFile[0]
 par = importParams(paramFile)
 if str(par['tStart']) not in os.listdir(globDataDir):

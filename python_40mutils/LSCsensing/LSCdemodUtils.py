@@ -246,7 +246,67 @@ def demodData(paramFile):
     f.close()
     return
 
-def plotData(paramFile, saveFig=False, dof1color='#008fd5', dof2color='#fc4f30', dof3color='#6d904f', dof4color='#e5ae38'):
+def plotData(paramFile, saveFig=False):
+    par = importParams(paramFile)
+    DoFdict = par['DoFs']
+    PDdict = par['PDs']
+    demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
+    n_PDs = len(PDdict.keys())
+    n_DoFs = len(DoFdict.keys())
+    physPDs = list(par['PDs'].keys())
+    mag = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    phase = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    magU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    phaseU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
+    fil = h5py.File(demodFile,'r')
+    # Get the stats
+    for kk, PD in enumerate(PDdict.keys()):
+        for ii, dof in enumerate(DoFdict.keys()):
+            conv = 10/2**15  # ADC Volts/count conversion
+            conv /= 10**(PDdict[PD]['gain']/20.)  # PD whitening gain
+            conv /= DoFdict[dof]['mconv']*DoFdict[dof]['freq']**-2  # Actuator meters/DAC count
+            result = demodStats(fil[PD +'_'+dof+'_mag_I'][:] + 1j*fil[PD +'_'+dof+'_mag_Q'][:])
+            mag[kk,ii] = result[0].nominal_value * conv
+            phase[kk,ii] = result[1].nominal_value - np.deg2rad(PDdict[PD]['angle'])
+            magU[kk,ii] = result[0].std_dev * conv
+            phaseU[kk,ii] = result[1].std_dev
+    # Make the plot
+    rc('font', weight=900)
+    thetaticks = np.arange(0,360,45)
+    if len(PDdict) < 3:
+        figs,ax = plt.subplots(1,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+    else:
+        figs,ax = plt.subplots(2,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+    
+    for iii, aa in enumerate(ax.flatten()):
+        try:
+            aa.set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
+            aa.plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD I')
+            aa.plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD Q')
+            aa.grid(linestyle='--', linewidth=0.7, alpha = 0.9)
+            aa.set_thetagrids(thetaticks)#,frac=1.2)
+            for kkk, dof in enumerate(DoFdict.keys()):
+                print('Plotting {} in {}'.format(dof, physPDs[iii]))
+                ll = aa.plot([0,phase[iii,kkk]], [0,np.log10(mag[iii,kkk])], label=dof, marker='.', markersize=6)
+                aa.add_patch(Ellipse(xy=(phase[iii][kkk],np.log10(mag[iii][kkk])),
+                    width=10*np.abs(phaseU[iii][kkk]),
+                    height=10*np.abs(np.log10(1+magU[iii][kkk]/mag[iii][kkk])),
+                    angle=0.,alpha=0.4, color=ll[0].get_color()))
+            if iii==0:
+                handles, labels = aa.get_legend_handles_labels()
+        except:
+            pass
+        
+    figs.subplots_adjust(hspace=0.5, wspace=0.33)
+    aa.axis('off')
+    legend = aa.legend(handles,labels,loc='center',fontsize=20)
+    aa.text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [V/m].\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
+    if saveFig:
+        figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')
+        print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))
+    return()
+
+def plotDataOrig(paramFile, saveFig=False, dof1color='#008fd5', dof2color='#fc4f30', dof3color='#6d904f', dof4color='#e5ae38'):
     par = importParams(paramFile)
     demodFile = par['filename']+'.p'
     with open(demodFile,'rb') as f:

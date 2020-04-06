@@ -84,5 +84,5 @@ def gaussPower(P0, w0, R, z, lam=1064e-9):
         Power through aperture [W].
     '''
     w, zR = gaussBeamProfile(w0, z, lam)
-    P = P0 * (1 - np.exp(-2*r**2/w**2))
+    P = P0 * (1 - np.exp(-2*R**2/w**2))
     return(P)

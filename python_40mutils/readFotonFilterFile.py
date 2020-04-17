@@ -37,18 +37,24 @@ def readFilterFile(fileName):
             elif arg[1]=='DESIGN':
                 fname = arg[2]
                 ind = int(arg[3])
-                p[fname] = {}
-                p[fname][ind]={}
-                p[fname][ind]['design'] = ''.join(arg[4:len(arg)+1])
+                #p[fname] = {}
+                #p[fname][ind]={}
+                #p[fname][ind]['design'] = ''.join(arg[4:len(arg)+1])
+                p[fname][ind]['design'] = ''.join(arg[4:])
         elif len(arg)==12:
             #This is an actual filter SOS definition
             fname=arg[0]
             index = int(arg[1])
-            try:
-                p[fname]
-            except NameError:
-                p[fname] = {}
-            p[fname][index] = {}
+            #try:
+            #    p[fname]
+            ##except NameError:
+            #except KeyError:
+            #    p[fname] = {}
+            #try:
+            #    p[fname][index]
+            #except KeyError:
+            #    p[fname][index] = {}
+            #p[fname][index] = {}
             p[fname][index]['name']=arg[6]
             p[fname][index]['gain']=float(arg[7])
             gain = float(arg[7])

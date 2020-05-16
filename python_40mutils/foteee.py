@@ -6,6 +6,7 @@ import generalUtils as genUtils
 import scipy.signal as sig
 import numpy as np
 import scipy.constants as scc
+import readFotonFilterFile
 
 def AAfilt(ff, f0_z=1e3*np.array([13.5305051680, 15.5318357741, 23.1746351749]),
         Q_z=np.array([423.6130434049e6, 747.6895990654e3, 1.5412966100e6]),
@@ -280,4 +281,93 @@ def DACTF(ff, fs=2**16):
     D = np.exp(-1j*x)
     D *= np.sin(x)/x
     return(D)
+
+def CDSfilts(ff):
+    '''
+    Convenience function to evaluate the combination of
+    AA --> DAA --> DAI ---> AI --> DAC.
+    This is mainly to avoid repeated evaluations of these 
+    functions, which are typically fixed.
+
+    Parameters:
+    -----------
+    ff: array_like
+        Frequency vector on which to evaluate the TF
+    
+    Returns:
+    ----------
+    Hdigital: array_like
+        The transfer function of the combo indicated.
+    '''
+    # Construct the overall loop
+    _, Hdigital = AAfilt(ff)                   # ADC AA
+    Hdigital *= DAIfilt(ff)[1]                 # Digital AA
+    Hdigital *= DAIfilt(ff)[1]                 # Digital AI
+    Hdigital *= DACTF(ff, fs=2**16)            # DAC transfer function
+    Hdigital *= AIfilt(ff)[1]
+    return(Hdigital)
+
+def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, returnDict=True):
+    '''
+    Calculate the DARM loop.
+    Primarily to invert the noise curve for noise budgeting.
+
+    Parameters:
+    ------------
+    ff: array_like
+        Frequency vector [Hz]
+    filtFile: str
+        Path to the foton filter file to extract the CDS 
+        DARM loop.
+    filts: array_like
+        Indices of filters turned on in the DARM filter bank.
+    optGain: float
+        DARM optical gain [W/m]. Defaults to 0.1 GW/m.
+    actGainDC: float
+        DC scaling [nm/ct] for the DARM pendulum transfer function.
+        Defaults to 1 nm/ct.
+    delay: float
+        Delay [s] in the DARM loop. Defaults to 200us.
+    returnDict: bool
+        Optionally, return a breakdown of the various pieces
+        composing the DARM loop. This defaults to True.
+
+    Return:
+    --------
+    H: array_like
+        DARM transfer function
+    '''
+    # Pendulum TF
+    actTF = actGainDC / ff**2
+    # Load the digital filter 
+    filtDict = readFotonFilterFile.readFilterFile(filtFile)
+    digitalFilt = np.array([1,0,0,1,0,0])
+    for ii in filts:
+        digitalFilt = np.vstack((digitalFilt, filtDict['LSC_DARM'][ii]['sosCoeffs']))
+    _, digitalFiltResp = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
+    # DARM pole
+    darmPole = DARMpole_PRFPMI()
+    darmPoleTF = sig.freqs_zpk([], [-2*np.pi*darmPole], 2*np.pi*darmPole, worN=2*np.pi*ff)[1]
+    # Construct the overall loop
+    H = CDSfilts(ff)                    # ADC AA + DAA + DAI + DAC + AI
+    H *= digitalFiltResp                # Digital loop
+    H *= actTF                          # Pendulum TF
+    H *= optGain                        # Optical gain
+    H *= darmPoleTF                     # DARM pole
+    
+    if returnDict:
+        # Build up a dictionary of the breakdown
+        darmDict = {}
+        darmDict['AA'] = AAfilt(ff)[1]
+        darmDict['DAA'] = DAIfilt(ff)[1]
+        darmDict['CDSfilt'] = digitalFiltResp
+        darmDict['DAI'] = DAIfilt(ff)[1]
+        darmDict['DAC'] = DACTF(ff)
+        darmDict['AI'] = AIfilt(ff)[1]
+        darmDict['actuatorTF'] = actTF
+        darmDict['optGain'] = np.ones_like(ff) * optGain * darmPoleTF
+        darmDict['Total'] = H
+        return(H, darmDict)
+    else:
+        return(H)
 

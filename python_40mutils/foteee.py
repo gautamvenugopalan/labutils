@@ -346,7 +346,7 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
         digitalFilt = np.vstack((digitalFilt, filtDict['LSC_DARM'][ii]['sosCoeffs']))
     _, digitalFiltResp = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
     # Violin mode filters
-    voilinFilt = np.array([1,0,0,1,0,0])
+    violinFilt = np.array([1,0,0,1,0,0])
     for ii in [3, 5, 9]:
         violinFilt = np.vstack((violinFilt, filtDict['LSC_ETMX'][ii]['sosCoeffs']))
     _, violinFiltResp = sig.sosfreqz(violinFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])

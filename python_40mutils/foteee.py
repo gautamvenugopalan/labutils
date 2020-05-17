@@ -345,12 +345,18 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
     for ii in filts:
         digitalFilt = np.vstack((digitalFilt, filtDict['LSC_DARM'][ii]['sosCoeffs']))
     _, digitalFiltResp = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
+    # Violin mode filters
+    voilinFilt = np.array([1,0,0,1,0,0])
+    for ii in [3, 5, 9]:
+        violinFilt = np.vstack((violinFilt, filtDict['LSC_ETMX'][ii]['sosCoeffs']))
+    _, violinFiltResp = sig.sosfreqz(violinFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
     # DARM pole
     darmPole = DARMpole_PRFPMI()
     darmPoleTF = sig.freqs_zpk([], [-2*np.pi*darmPole], 2*np.pi*darmPole, worN=2*np.pi*ff)[1]
     # Construct the overall loop
     H = CDSfilts(ff)                    # ADC AA + DAA + DAI + DAC + AI
-    H *= digitalFiltResp                # Digital loop
+    H *= digitalFiltResp                # Digital servo
+    H *= violinFiltResp                 # Violin filters
     H *= actTF                          # Pendulum TF
     H *= optGain                        # Optical gain
     H *= darmPoleTF                     # DARM pole
@@ -361,6 +367,7 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
         darmDict['AA'] = AAfilt(ff)[1]
         darmDict['DAA'] = DAIfilt(ff)[1]
         darmDict['CDSfilt'] = digitalFiltResp
+        darmDict['violinfilt'] = violinFiltResp
         darmDict['DAI'] = DAIfilt(ff)[1]
         darmDict['DAC'] = DACTF(ff)
         darmDict['AI'] = AIfilt(ff)[1]

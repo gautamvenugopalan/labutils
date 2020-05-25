@@ -344,6 +344,8 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
     digitalFilt = np.array([1,0,0,1,0,0])
     for ii in filts:
         digitalFilt = np.vstack((digitalFilt, filtDict['LSC_DARM'][ii]['sosCoeffs']))
+    # Tack on the DARM B integrator
+    digitalFilt = np.vstack((digitalFilt, filtDict['LSC_CARM_B'][6]['sosCoeffs']))
     _, digitalFiltResp = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
     # Violin mode filters
     violinFilt = np.array([1,0,0,1,0,0])
@@ -360,7 +362,7 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
     H *= actTF                          # Pendulum TF
     H *= optGain                        # Optical gain
     H *= darmPoleTF                     # DARM pole
-    
+#    H *= -1                             # Negative feedback    
     if returnDict:
         # Build up a dictionary of the breakdown
         darmDict = {}

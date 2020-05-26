@@ -6,11 +6,12 @@ from matplotlib import rc, rcParams
 import matplotlib.widgets as mw
 from matplotlib.patches import Ellipse
 import nds2
-import nbutils as nbu
+#import nbutils as nbu
 import yaml
 #import glob
 import h5py
 import scipy.signal as sig
+import scipy.stats as scst
 import timeit
 from astropy.time import Time
 import uncertainties as uc
@@ -240,8 +241,8 @@ def demodData(paramFile):
             else:
                 print('Poor SNR of '+dof+' in '+PD+'! So Im not demodulating.')
     print('Demodulation complete - saving data to file...')
-    with open(par['filename']+'.p','wb') as ff:
-        pickle.dump(PDresults,ff)
+   # with open(par['filename']+'.p','wb') as ff:
+   #     pickle.dump(PDresults,ff)
     print('Data saved... Time to plot...')
     f.close()
     return
@@ -306,113 +307,79 @@ def plotData(paramFile, saveFig=False):
         print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))
     return()
 
-def plotDataOrig(paramFile, saveFig=False, dof1color='#008fd5', dof2color='#fc4f30', dof3color='#6d904f', dof4color='#e5ae38'):
+def printMatrixElements(paramFile, sensorList, dofList):
+    '''
+    Function to print out the demodulated sensing matrix elements
+
+    Parameters:
+    -----------
+    paramFile: str
+        Path to the parameter file.
+    sensorList: array_like
+        List of sensors
+    dofList: array_like
+        List of DoFs
+    '''
     par = importParams(paramFile)
-    demodFile = par['filename']+'.p'
-    with open(demodFile,'rb') as f:
-        PDresults = pickle.load(f)
     DoFdict = par['DoFs']
     PDdict = par['PDs']
-    #Pull the info from the demodulation and package it into arrays.
-    n_PDs = len(PDdict.keys())
-    physPDs = list(par['PDs'].keys())
-    mag = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
-    phase = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
-    magU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
-    phaseU = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
-    for kk, PD in enumerate(PDdict.keys()):
-        result = PDresults[PD]
-        for ii, dof in enumerate(DoFdict.keys()):
-            conv = 10/2**15  # ADC Volts/count conversion
-            conv /= 10**(PDdict[PD]['gain']/20.)  # PD whitening gain
-            conv /= DoFdict[dof]['mconv']*DoFdict[dof]['freq']**-2  # Actuator meters/DAC count
-            mag[kk,ii] = result[dof][0].nominal_value * conv
-            phase[kk,ii] = result[dof][1].nominal_value - np.deg2rad(PDdict[PD]['angle'])
-            magU[kk,ii] = result[dof][0].std_dev * conv
-            phaseU[kk,ii] = result[dof][1].std_dev
-    #Make the plot
-    plt.style.use('default')
-    rc('font', weight=900)
-    thetaticks = np.arange(0,360,45)
-    if len(PDdict) < 3:
-        figs,ax = plt.subplots(1,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
+    demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
+    fil = h5py.File(demodFile, 'r')
+    for ss, dd in zip(sensorList, dofList):
+        PD = ss.split(sep='_')[0]
+        quad = ss.split(sep='_')[1]
+        resp = np.mean(np.abs(fil[PD+'_'+dd+'_demodOut_'+quad]))
+        resp /= DoFdict[dd]['mconv']*DoFdict[dd]['freq']**-2
+        outStr = 'Response of {} in {}_{} is {:.2E} cts/m'.format(dd, PD, quad, resp)
+        print(outStr)
+    return()
+
+def sensingHistograms(paramFile, sensorList, dofList, saveFig=False):
+    '''
+    Function to make histograms of the demodulated outputs,
+    for the pairings given in sensorList and dofList
+    Parameters:
+    -----------
+    paramFile: str
+        Path to the parameter file.
+    sensorList: array_like
+        List of sensors
+    dofList: array_like
+        List of DoFs
+    '''
+    par = importParams(paramFile)
+    DoFdict = par['DoFs']
+    PDdict = par['PDs']
+    demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
+    # Make a figure. nRows = number of sensors, nCols = 2
+    if len(dofList) <= 4:
+        fig, ax = plt.subplots(2,2, figsize=(16,9))
     else:
-        figs,ax = plt.subplots(2,3,subplot_kw=dict(projection='polar'),figsize=(16,12))
-
-    for iii in range(n_PDs):
-        if iii<3:
-            #ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='SRCL',marker='.', markersize=6, color=dof4color)
-            ax[0,iii].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=dof2color)
-            ax[0,iii].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=dof1color)
-            ax[0,iii].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='CARM',marker='.', markersize=6, color=dof3color)
-            #Add the uncertainty ellipses
-            #ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-            #        width=10*np.abs(phaseU[iii][2]),
-            #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color=dof4color))
-            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
-                    width=10*np.abs(phaseU[iii][0]),
-                    height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color=dof2color))
-            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
-                    width=10*np.abs(phaseU[iii][1]),
-                    height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color=dof1color))
-            ax[0,iii].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-                    width=10*np.abs(phaseU[iii][2]),
-                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-                    angle=0.,alpha=0.4, color=dof3color))
-            ax[0,iii].set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
-            ax[0,iii].tick_params(labelsize=16)
-            ax[0,iii].set_thetagrids(thetaticks)#,frac=1.2)
-            ax[0,iii].grid(linestyle='--', linewidth=0.7, alpha = 0.9)
-            #Add a line indicating the I and Q phases for this photodiode
-            ax[0,iii].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
-            ax[0,iii].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
-        else:
-            #ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])],label='SRCL',marker='.', markersize=6, color=dof4color)
-            ax[1,iii-3].plot([0,phase[iii,0]],[0,np.log10(mag[iii,0])], label='MICH',marker='.', markersize=6, color=dof2color)
-            ax[1,iii-3].plot([0,phase[iii,1]],[0,np.log10(mag[iii,1])], label='PRCL',marker='.', markersize=6, color=dof1color)
-            ax[1,iii-3].plot([0,phase[iii,2]],[0,np.log10(mag[iii,2])], label='CARM',marker='.', markersize=6, color=dof3color)
-            ax[1,iii-3].set_title(physPDs[iii],fontsize=20, fontweight='bold',y=1.15)
-            #ax[1,iii-3].set_yticklabels([])
-            ax[1,iii-3].tick_params(labelsize=16)
-            ax[1,iii-3].set_thetagrids(thetaticks)#,frac=1.2)
-            #ax[1,iii-3].set_yticks(range(1,10))
-            ax[1,iii-3].grid(linestyle='--', linewidth=0.7, alpha = 0.9)
-            ax[1,iii-3].plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD_I')
-            ax[1,iii-3].plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD_Q')
-            #Add the uncertainty ellipses
-            #ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-            #        width=10*np.abs(phaseU[iii][2]),
-            #        height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-            #        angle=0.,alpha=0.4, color=dof4color))
-            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][0],np.log10(mag[iii][0])),
-                    width=10*np.abs(phaseU[iii][0]),
-                    height=10*np.abs(np.log10(1+magU[iii][0]/mag[iii][0])),
-                    angle=0.,alpha=0.4, color=dof2color))
-            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][1],np.log10(mag[iii][1])),
-                    width=10*np.abs(phaseU[iii][1]),
-                    height=10*np.abs(np.log10(1+magU[iii][1]/mag[iii][1])),
-                    angle=0.,alpha=0.4, color=dof1color))
-            ax[1,iii-3].add_patch(Ellipse(xy=(phase[iii][2],np.log10(mag[iii][2])),
-                    width=10*np.abs(phaseU[iii][2]),
-                    height=10*np.abs(np.log10(1+magU[iii][2]/mag[iii][2])),
-                    angle=0.,alpha=0.4, color=dof3color))
-
-    ax[1,2].axis('off')
-    figs.subplots_adjust(hspace=0.5, wspace=0.33)
-    handles, labels = ax[1,1].get_legend_handles_labels()
-    legend = ax[1,2].legend(handles,labels,loc='center',fontsize=20)
-    ax[1,2].text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [V/m].\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
-
-    #Print the nominal values of the sensing matrix onto the plot.
-    mich = mag[3][0] * np.abs(np.cos(phase[4][0] + np.deg2rad(90) + np.deg2rad(PDdict['AS55']['angle']))) #MICH in AS55_Q
-    prcl = mag[0][1] * np.abs(np.cos(phase[0][1])) #PRCL in REFL11_I
-    #srcl = mag[4][2] * np.abs(np.cos(phase[1][2])) #SRCL in REFL55_I
-    #ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$\n$\mathrm{SRCL}_{\mathrm{REFL55I}} = %.3E  \mathrm{V/m}$\n'% (mich,prcl,srcl),fontsize=12, weight='extra bold')
-    ax[1,2].text(2.4,0.9,'$\mathrm{MICH}_{\mathrm{AS55Q}} = %.3E \mathrm{ V/m} $\n$\mathrm{PRCL}_{\mathrm{REFL11I}} = %.3E \mathrm{V/m}$ \n'% (mich,prcl),fontsize=12, weight='extra bold')
+        fig, ax = plt.subplots(3,2, figsize=(16,9))
+    fil = h5py.File(demodFile, 'r')
+    for jj, (ss, dd) in enumerate(zip(sensorList, dofList)):
+        resp_I = np.abs(fil[ss+'_'+dd+'_demodOut_I']) / (DoFdict[dd]['mconv']*DoFdict[dd]['freq']**-2) / 1e9
+        resp_Q = np.abs(fil[ss+'_'+dd+'_demodOut_Q']) / (DoFdict[dd]['mconv']*DoFdict[dd]['freq']**-2) / 1e9
+        # Use scipy stats to estimate some probability density function
+        density_I = scst.gaussian_kde(resp_I)
+        density_Q = scst.gaussian_kde(resp_Q)
+        ax.flatten()[jj].hist(resp_I, bins=20, alpha=0.6, label='I', density=True)
+        ax.flatten()[jj].plot(sorted(resp_I), density_I(sorted(resp_I)), 
+                linestyle='--', color='xkcd:charcoal')
+        ax.flatten()[jj].hist(resp_Q, bins=20, alpha=0.6, label='Q', density=True)
+        ax.flatten()[jj].plot(sorted(resp_Q), density_Q(sorted(resp_Q)), 
+                
+                linestyle='--', color='xkcd:charcoal')
+        ax.flatten()[jj].set_xlabel('{} in {} [cts/nm]'.format(dd, ss))
+        ax.flatten()[jj].set_ylabel('Normalized density')
+    for aa in ax.flatten():
+        aa.grid(True, which='both', linestyle='--', alpha=0.4)
+    ax[0,0].legend(loc='best')
+    ax[2,1].axis('off')
+    fig.suptitle('LSC sensing responses')
+    fig.subplots_adjust(top=0.96, hspace=0.25, wspace=0.25)
     if saveFig:
-        figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')
-        print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))
-    return
+        fig.savefig(figDir+par['filename']+'sensMatHistograms.pdf', bbox_inches='tight')
+        print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMatHistograms.pdf'))
+    return()
+

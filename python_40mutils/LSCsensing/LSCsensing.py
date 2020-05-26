@@ -43,5 +43,6 @@ demodData(paramFile)
 # Make the sensing matrix
 plotData(paramFile, saveFig=True)
 
-# Finally, print the matrix that should go into the EPICS screen
+# Finally, print the important sensing elements
+printMatrixElements(paramFile, ['REFL11_I', 'AS55_Q', 'REFL33_I', 'REFL165_Q'], ['CARM', 'DARM', 'PRCL', 'MICH'])
 #logging.info('Computed matrix that will best diagonalize the sensor signals is')

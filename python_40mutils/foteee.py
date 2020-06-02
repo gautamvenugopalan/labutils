@@ -338,7 +338,10 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
         DARM transfer function
     '''
     # Pendulum TF
-    actTF = actGainDC / ff**2
+    f0, Q = 1, 5
+    poles_pend = genUtils.fq2reim(f0,Q).flatten()
+    _, actTF = sig.freqs_zpk([], poles_pend, np.abs(np.prod(poles_pend))*actGainDC, 2*np.pi*ff)
+    #actTF = actGainDC / ff**2
     # Load the digital filter 
     filtDict = readFotonFilterFile.readFilterFile(filtFile)
     digitalFilt = np.array([1,0,0,1,0,0])
@@ -362,7 +365,7 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
     H *= actTF                          # Pendulum TF
     H *= optGain                        # Optical gain
     H *= darmPoleTF                     # DARM pole
-#    H *= -1                             # Negative feedback    
+    H *= -1                             # Negative feedback    
     if returnDict:
         # Build up a dictionary of the breakdown
         darmDict = {}

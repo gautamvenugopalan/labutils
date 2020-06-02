@@ -21,7 +21,7 @@ import datetime, os
 import socket
 import tqdm
 import logging
-
+import pandas as pd
 
 logging.basicConfig(
     level=os.getenv('LOG_LEVEL', 'INFO'),
@@ -333,6 +333,42 @@ def printMatrixElements(paramFile, sensorList, dofList):
         outStr = 'Response of {} in {}_{} is {:.2E} cts/m'.format(dd, PD, quad, resp)
         print(outStr)
     return()
+
+def printMatrix(paramFile):
+    '''
+    Function to print out the demodulated sensing matrix.
+
+    Parameters:
+    -----------
+    paramFile: str
+        Path to the parameter file.
+
+    Returns:
+    --------
+    matrix: pandas dataframe
+        A pandas dataframe that is the sensing matrix
+    '''
+    def _round_expr(expr, num_digits):
+        return expr.xreplace({n : round(n, num_digits) for n in expr.atoms(sympy.Number)})
+    par = importParams(paramFile)
+    DoFdict = par['DoFs']
+    PDdict = par['PDs']
+    demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
+    matrix = np.ones((2*len(PDdict), len(DoFdict)))
+    fil = h5py.File(demodFile, 'r')
+    for jj, ss in enumerate(PDdict):
+        for kk, dd in enumerate(DoFdict):
+            resp_I = np.mean(np.abs(fil[ss+'_'+dd+'_demodOut_I']))
+            resp_I /= DoFdict[dd]['mconv']*DoFdict[dd]['freq']**-2
+            resp_Q = np.mean(np.abs(fil[ss+'_'+dd+'_demodOut_Q']))
+            resp_Q /= DoFdict[dd]['mconv']*DoFdict[dd]['freq']**-2
+            matrix[2*jj, kk] = resp_I
+            matrix[2*jj+1, kk] = resp_Q
+    cols = [aa+'{}'.format(bb) for aa in PDdict for bb in ['_I', '_Q']]
+    print('Sensing matrix in cts/m is')
+    df = pd.DataFrame(matrix.T, columns=cols, index=[aa for aa in DoFdict])
+    print(df)
+    return(df)
 
 def sensingHistograms(paramFile, sensorList, dofList, saveFig=False):
     '''

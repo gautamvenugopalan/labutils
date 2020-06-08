@@ -72,8 +72,14 @@ def dlData(paramFile):
         print('Trying to download {} seconds of data from {}'.format(par['duration']
             ,par['tStart']))
         tic = timeit.default_timer()
+        if 'pianosa' in socket.gethostname():
+            server, port = 'fb', 8088
+            print('On martian network, so using FB')
+        else:
+            server, port = par['ndsServer'], par['ndsPort']
+            print('Not On martian network, so using {}:{} for NDS'.format(server, port))
         try:
-            conn = nds2.connection(par['ndsServer'],par['ndsPort'])
+            conn = nds2.connection(server, port)
         except:
             print('Cant open NDS connection ')
             return

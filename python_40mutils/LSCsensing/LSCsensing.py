@@ -45,5 +45,5 @@ plotData(paramFile, saveFig=True)
 
 # Finally, print the important sensing elements
 #printMatrixElements(paramFile, ['REFL11_I', 'AS55_Q', 'REFL33_I', 'REFL165_Q'], ['CARM', 'DARM', 'PRCL', 'MICH'])
-printMatrix(paramFile)
+_ = printMatrix(paramFile)
 #logging.info('Computed matrix that will best diagonalize the sensor signals is')

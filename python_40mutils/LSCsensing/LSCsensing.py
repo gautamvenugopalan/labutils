@@ -2,6 +2,7 @@ import argparse
 import LSCdemodUtils as utils
 from LSCdemodUtils import *
 from cycler import cycler
+from IPython import embed
 
 parser = argparse.ArgumentParser(description=
         '''Usage:
@@ -45,5 +46,6 @@ plotData(paramFile, saveFig=True)
 
 # Finally, print the important sensing elements
 #printMatrixElements(paramFile, ['REFL11_I', 'AS55_Q', 'REFL33_I', 'REFL165_Q'], ['CARM', 'DARM', 'PRCL', 'MICH'])
-_ = printMatrix(paramFile)
+sensMat = printMatrix(paramFile)
 #logging.info('Computed matrix that will best diagonalize the sensor signals is')
+embed()

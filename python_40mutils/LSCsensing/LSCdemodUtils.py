@@ -72,7 +72,7 @@ def dlData(paramFile):
         print('Trying to download {} seconds of data from {}'.format(par['duration']
             ,par['tStart']))
         tic = timeit.default_timer()
-        if 'pianosa' in socket.gethostname():
+        if 'pianosa' or 'rossa' in socket.gethostname():
             server, port = 'fb', 8088
             print('On martian network, so using FB')
         else:

@@ -7,6 +7,68 @@ import scipy.signal as sig
 import numpy as np
 import scipy.constants as scc
 import readFotonFilterFile
+import yaml
+import os
+import tqdm
+import nds2
+import h5py
+import socket
+import timeit
+
+def importParams(paramFile):
+    '''
+    Load in a set of parameters.
+    '''
+    with open(paramFile,'r') as f:
+        params = yaml.safe_load(f)
+    return(params)
+
+def dlData(paramFile, saveDir='Data/'):
+    '''
+    Executes downloading of data from an nds server,
+    for paramters specified in the paramFile.
+    -------------
+    Returns:
+        Nothing
+    '''
+    par = importParams(paramFile)
+    # Check if the file exists already
+    if os.path.exists(saveDir + par['filename'] + '.hdf5'):
+        print('Data file exists already at {} ... If you wish to re-download, delete the file'.format(
+                        saveDir + par['filename']))
+    else:
+        # Check that the directory exists
+        if saveDir.strip('/') not in os.listdir():
+            os.mkdir(saveDir)
+            print('Directory to save data to did not exist.')
+            print('Created the directory {}'.format(saveDir))
+        print('Trying to download {} seconds of data from {}'.format(par['duration']
+            ,par['tStart']))
+        tic = timeit.default_timer()
+        if 'rossa' in socket.gethostname() or 'pianosa' in socket.gethostname():
+            server, port = 'fb', 8088
+            print('On martian network, so using FB')
+        else:
+            server, port = par['ndsServer'], par['ndsPort']
+            print('Not On martian network, so using {}:{} for NDS'.format(server, port))
+        try:
+            conn = nds2.connection(server, port)
+        except:
+            print('Cant open NDS connection ')
+            return
+        with h5py.File(saveDir+par['filename']+'.hdf5','w') as f:
+            # Download the LSC photodiode data
+            for chan in tqdm.tqdm(par['channels']):
+                dat = conn.fetch(par['tStart'],par['tStart']+par['duration'],
+                                [chan])
+                data = f.create_dataset(chan, data=dat[0].data)
+                data.attrs['fs'] = dat[0].sample_rate
+        print('Download successful, closing file...')
+        f.close()
+        toc = timeit.default_timer() - tic
+        print('Elapsed time is {} seconds'.format(round(toc,2)))
+    return
+
 
 def AAfilt(ff, f0_z=1e3*np.array([13.5305051680, 15.5318357741, 23.1746351749]),
         Q_z=np.array([423.6130434049e6, 747.6895990654e3, 1.5412966100e6]),

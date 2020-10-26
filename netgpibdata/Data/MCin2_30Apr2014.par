@@ -1,0 +1,32 @@
+#SR785 Transfer function measurement
+#Column format = [Freq  Mag(dB) Phase(deg) NormVar1  NormVar2]
+Title: MCin2_30Apr2014
+Memo: 
+#---------- Measurement Setup ------------
+Start frequency = .1Hz
+Stop frequency = 1kHz
+Number of frequency points = 100
+Excitation amplitude = 1mV
+Settling cycles = 10
+Integration cycles = 20
+
+#SR785 parameter file
+#This file contains measurement parameters for the data saved in MCin2_30Apr2014.dat
+##################### Measurement Parameters #############################
+Measurement Group:  "Swept Sine" "Swept Sine"
+Measurements:  "Normalized Variance 1" "Normalized Variance 2"
+View:  "Linear Magnitude" "Linear Magnitude"
+Unit:  " " " "
+
+##################### Input Parameters #############################
+Input Source: Analog
+Input Mode: Single ended, Single ended
+Input Grounding: Float, Float
+Input Coupling: DC, DC
+Input Range: -50.0dBVpk, -32.0dBVpk
+Auto Range: On, On
+Auto Range Mode: Up Only, Normal
+Anti-Aliasing Filter: On, On
+##################### Source Parameters #############################
+Source Type: Sine
+Source Amplitude: 1.0mVpk

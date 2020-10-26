@@ -1,0 +1,17 @@
+Title: meas01
+Memo: 
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in meas01.dat
+Data format: Freq, Real Part(), Imaginary Part()
+##################### Measurement Parameters #############################
+Analyzer Type: Network Analyzer
+CH1 measurement: AR
+CH2 measurement: AR
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: On
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: On
+R attenuator: 20dB
+A attenuator: 20dB
+B attenuator: 20dB
+Source power: -9.000000E+000dBm

@@ -1,0 +1,24 @@
+Title: Data/MCerrorSpectra/highf
+############## Spectral Measurement Parameters #########################
+Frequency Span: +9.20000000000000E+006
+
+Start Frequency: +8.00000000000000E+005
+
+Stop Frequency: +1.00000000000000E+007
+
+Number of Points: 801
+Number of Averages: 9
+Auto Attenuation: 0
+####################################################################
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in Data/MCerrorSpectra/highf.dat
+Data format: Freq, Spectrum(W)
+##################### Measurement Parameters #############################
+Analyzer Type: Spectrum Analyzer
+CH1 measurement: B
+CH1 bandwidth: +1.00000000000000E+003
+CH1 auto bandwidth: Off
+R attenuator: 20dB
+A attenuator: 20dB
+B attenuator: 0dB
+Source power: +0.000000E+000dBm

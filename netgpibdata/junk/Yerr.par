@@ -1,0 +1,14 @@
+Title: Yerr
+Memo: 
+#Agilent 4395A parameter file
+#This file contains measurement parameters for the data saved in Yerr.dat
+Data format: Freq,Spectrum(W)
+##################### Measurement Parameters #############################
+Analyzer Type: Spectrum Analyzer
+CH1 measurement: B
+CH1 bandwidth: +1.00000000000000E+003
+CH1 auto bandwidth: On
+R attanuator: 20dB
+A attanuator: 20dB
+B attanuator: 0dB
+Source power: +0.000000E+000dBm

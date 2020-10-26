@@ -1,0 +1,22 @@
+Title: fast_boost
+Memo: 
+#SR785 parameter file
+#This file contains measurement parameters for the data saved in fast_boost.dat
+##################### Measurement Parameters #############################
+Measurement Group:  "Swept Sine" "Swept Sine"
+Measurements:  "Frequency Response" "Frequency Response"
+View:  "Log Magnitude" "Phase"
+Unit:  "dB" "deg"
+
+##################### Input Parameters #############################
+Input Source: Analog
+Input Mode: Single ended, Single ended
+Input Grounding: Float, Float
+Input Coupling: AC, AC
+Input Range: -42.0dBVpk, -4.0dBVpk
+Auto Range: Off, Off
+Auto Range Mode: Up Only, Normal
+Anti-Aliasing Filter: On, On
+##################### Source Parameters #############################
+Source Type: Sine
+Source Amplitude: 7.0mVpk

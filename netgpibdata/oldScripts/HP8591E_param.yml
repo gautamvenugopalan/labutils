@@ -1,0 +1,11 @@
+# Parameters for HP8591E spectrum analyzer
+
+# Sweep parameters
+ipAddress:      santuzza   ## Ip or hostname of GPIB Device
+gpibAddress:    10                ## port of GPIB device (10) is default 
+
+
+# Measurement Parameters
+saveDir:        /users/ericq/scriptTesting/             ## Path where output is saved, use './' for current dir
+startFreq:      0              ## Start frequency 0MHz (Please write in MHz only)
+stopFreq:       200            ## Stop frequency, 200MHz 

@@ -1,0 +1,332 @@
+#!/usr/bin/env python
+#
+# TSFR measurement script for suspensions electronics testing (SR785).
+# Modified from code by Yoichi Aso.
+# cmreed 20100329
+# Edited by Carl Adams for LLO testing on windows machine 20100406
+# Reedited by Edward R    
+# Overhauled by Ericq - 2014
+
+import sys, os, time
+import datetime
+import netgpib
+import SR785
+import termstatus
+import matplotlib.pyplot as plt
+import numpy as np
+import yaml
+import argparse
+
+def readParams(paramFile):
+    with open(paramFile,'r') as f:
+        reader = yaml.load_all(f)
+        params = reader.next()
+        reader.close()
+    return(params)
+
+
+def connectGPIB(ipAddress,gpibAddress):
+    print('Connecting to '+str(ipAddress)+':'+str(gpibAddress)+' ...'),
+    gpibObj=netgpib.netGPIB(ipAddress, gpibAddress, '\004',0)
+    print('done.')
+
+    #Set output to GPIB
+    gpibObj.command("OUTX0")
+
+    # Print IDN
+    print "Instrument ID: ",
+    idnString=gpibObj.query("*IDN?")
+    print idnString.splitlines()[-1]
+    time.sleep(0.1)
+    return(gpibObj)
+
+
+def setParameters(gpibObj,params):
+    print('Setting up parameters for the measurement...')
+    # Expand dictionary keys to local variables. I.e. params['key']->key
+    globals().update(params)
+    
+    # Make sure PSD units are off
+    SR785.psdOff(gpibObj)
+    # Input Settings
+    if inputCoupling1 == "AC":
+        icp1="1"
+    else:
+        icp1="0"
+    gpibObj.command('I1CP'+icp1) #CH1 Input Coupling
+
+    if inputCoupling2 == "AC":
+        icp2="1"
+    else:
+        icp2="0"
+    gpibObj.command('I2CP'+icp2) #CH2 Input Coupling
+
+    if inputGND1 == "Float":
+        igd1="0"
+    else:
+        igd1="1"
+    gpibObj.command('I1GD'+igd1) #CH1 Input GND
+
+    if inputGND2 == "Float":
+        igd2="0"
+    else:
+        igd2="1"
+    gpibObj.command('I2GD'+igd2) #CH2 Input GND
+
+    gpibObj.command('A1RG0') #AutoRange Off
+    gpibObj.command('A2RG0') #AutoRange Off
+    if arMode == "Tracking":
+        arModeID='1'
+    else:
+        arModeID='0'
+    gpibObj.command('I1AR'+arModeID) #Auto Range Mode 
+    gpibObj.command('I2AR'+arModeID) #Auto Range Mode 
+    gpibObj.command('A1RG1') #AutoRange On
+    gpibObj.command('A2RG1') #AutoRange On
+    gpibObj.command('I1AF1') #Anti-Aliasing filter On
+    gpibObj.command('I2AF1') #Anti-Aliasing filter On
+
+    if inputDiff1 == "A":
+        idf1="0"
+    else:
+        idf1="1"
+    gpibObj.command('I1MD'+idf1) #CH1 Input A-B = 1; A = 0
+
+    if inputDiff2 == "A":
+        idf1="0"
+    else:
+        idf1="1"
+    gpibObj.command('I2MD'+idf1) #CH2 Input A-B = 1; A = 0
+
+    # Set measurement type, displays
+
+    gpibObj.command('DFMT1') # Dual display
+    gpibObj.command('ACTD0') # Active display 0
+    gpibObj.command('MGRP2,3') # Measurement Group = Swept Sine
+    gpibObj.command('MEAS2,47') # Frequency Resp
+    gpibObj.command('DISP0,1') # Live display on
+    gpibObj.command('DISP1,1') # Live display on
+    #gpibObj.command('SSTM2,'+str(settleTime)) #Settle time
+    #gpibObj.command('SITM2,'+str(intTime)) #Integration Time
+    gpibObj.command('SSCY2,'+str(settleCycles)) # Settle cycles
+    gpibObj.command('SICY2,'+str(intCycles)) # Integration cycles
+    gpibObj.command('SSTR2,'+startFreq) #Start frequency
+    gpibObj.command('SSTP2,'+stopFreq) #Stop frequency
+    gpibObj.command('SNPS2,'+str(numOfPoints)) #Number of points
+    gpibObj.command('SRPT2,0') #Single shot mode
+    if sweepType == 'Linear':
+        sweepTypeID='0'
+    else:
+        sweepTypeID='1'
+    gpibObj.command('SSTY2,'+sweepTypeID) # Sweep Type
+    gpibObj.command('SSAM'+excAmp) #Source Amplitude
+    gpibObj.command('SOFF'+excOff) #Source Offset
+
+    # Windowing
+    #windowDict={'Uniform':0,'Flattop':1, 'Hanning':2, 'BMH':3, 'Kaiser':4,
+    #            'Force/Exponential':5, 'User':6}
+    #gpibObj.command('FWIN0,'+windowDict[windowFunc])
+    # Set units
+    if dataMode == "ReIm":
+        gpibObj.command('VIEW0,3') # Disp 0 = Real part
+        gpibObj.command('VIEW1,4') # Disp 1 = Imag part
+        gpibObj.command('UNDB0,0') # dB OFF
+        gpibObj.command('UNDB1,0') # dB OFF
+    else:
+        gpibObj.command('VIEW0,0') # Disp 0 = LogMag
+        gpibObj.command('VIEW1,5') # Dsip 1 = Phase
+        if 'dB' in dataMode:
+            gpibObj.command('UNDB0,1') # dB On
+        else:
+            gpibObj.command('UNDB0,0') # dB Off
+        gpibObj.command('UNDB1,0') # dB OFF
+        gpibObj.command('UNPH1,0') # Phase Unit deg.
+
+
+def measure(gpibObj):
+    #Start measurement
+    numPoints=int(gpibObj.query('SNPS?0')) #Number of points
+    print 'Starting Sweep of ' + str(numPoints) + ' points'
+    sys.stdout.flush()
+    gpibObj.command('STRT') #Start
+
+    #Wait for the measurement to end
+    measuring = True
+    percentage=0
+    accomplished=0
+    progressInfo=termstatus.statusTxt('0%')
+    while measuring:
+        #Get status 
+        ## Manual says we should check bit 0 as well...
+        #measuring = not (int(gpibObj.query('DSPS?4')) 
+        #                 or int(gpibObj.query('DSPS?0')))
+        measuring = not int(gpibObj.query('DSPS?4'))
+        a=int(gpibObj.query('SSFR?'))
+        percentage=int(round(100*a/numPoints))
+        progressInfo.update(str(percentage)+'%')
+        accomplished=percentage
+        time.sleep(0.5)
+    progressInfo.end('100%')
+
+
+def download(gpibObj, nDisp):
+    data=list()
+    for disp in range(nDisp):
+        print('Downloading data from display #'+str(disp))
+        (f,d)=SR785.downloadData(gpibObj, disp)        
+        data.append(d)
+    freq=f
+    return(freq, data)
+
+
+def writeHeader(dataFile, params):
+    locals().update(params)
+    dataFile.write('# SR785 Transfer Function Measurement\n')
+    dataFile.write('# Timestamp: ' + params['timeStamp']+'\n' ) 
+    dataFile.write('#---------- Measurement Setup ------------\n')
+    dataFile.write('# Start frequency = '+startFreq+'\n')
+    dataFile.write('# Stop frequency = '+stopFreq+'\n')
+    dataFile.write('# Number of frequency points = '+str(numOfPoints)+'\n')
+    dataFile.write('# Excitation amplitude = '+excAmp+'\n')
+    #dataFile.write('Settling time = '+str(settleTime)+'\n')
+    #dataFile.write('Integration time = '+str(intTime)+'\n')
+    dataFile.write('# Settling cycles = '+str(settleCycles)+'\n')
+    dataFile.write('# Integration cycles = '+str(intCycles)+'\n')
+    dataFile.write('\n')
+
+def tfPlot(dataArray,params, legLabel):
+    format = params['dataMode']
+    if format == 'ReIm':
+        Carray = dataArray[:,1] + 1j*dataArray[:,2]
+    elif format =='dBPhDeg':
+        Carray = 10**(dataArray[:,1]/20.0)*np.exp(1j*dataArray[:,2]/180.0*np.pi)
+    elif format =='MagPhDeg':
+        Carray = dataArray[:,1] * np.exp(1j*dataArray[:,2]/180.0*np.pi)
+
+    # Wish I could be sure plt.subplots existed on all machines...
+    f =plt.gcf()
+    axlist=[plt.subplot(211), plt.subplot(212)]
+
+    h = axlist[0].plot(dataArray[:,0],20*np.log10(np.abs(Carray)))
+    h = axlist[1].plot(dataArray[:,0],np.angle(Carray, deg=True),label=legLabel)
+
+    axlist[0].set_xscale('log')
+    axlist[0].set_ylabel('Magnitude (dB)')
+    axlist[0].set_yscale('linear')
+    axlist[1].set_xscale('log')
+    axlist[1].set_xlabel('Freq. (Hz)')
+    axlist[1].set_yscale('linear')
+    axlist[1].set_ylabel('Phase (deg)')
+    f.suptitle('SR785 TF Measurement - ' + 
+            time.strftime('%b %d %Y - %H:%M:%S', time.localtime()))
+    axlist[0].axis('tight')
+    axlist[1].axis('tight')
+    axlist[1].set_ylim((-180,180))
+    axlist[0].grid('on')
+    axlist[1].grid('on')
+    axlist[1].legend()
+    axlist[1].get_legend().get_frame().set_alpha(.5)
+
+def main(paramFile):
+    print('Reading parameters from '+paramFile)
+    params=readParams(paramFile)
+    if params['measType'] != 'TF':
+        raise ValueError('Wrong measurement type entered in parameter file!')
+
+    gpibObj = connectGPIB(params['ipAddress'], params['gpibAddress'])
+    #SR785.reset(gpibObj)
+    setParameters(gpibObj,params)
+    measure(gpibObj)
+    params['timeStamp'] =time.strftime('%b %d %Y - %H:%M:%S', time.localtime()) 
+    fileRoot = (params['nameRoot'] + '_' + 
+                time.strftime('%d-%m-%Y', time.localtime()) + 
+                time.strftime('_%H%M%S', time.localtime()))
+
+    time.sleep(2)
+    (freq, data) = download(gpibObj,2)
+
+    dataFileName = fileRoot+'.txt'
+
+    outDir = params['saveDir'];
+    print('Saving files to '+outDir)
+    print('Measurement data will be written into '+dataFileName)
+    
+    with open(outDir + dataFileName,'w') as dataFile:
+        writeHeader(dataFile, params)
+        SR785.getparam(gpibObj, dataFile)
+        print('Writing measurement data to file...')
+
+        # Really, I should just read all set parameters, and update dict based
+        # on reality. Write entire header with one function. Put it into 
+        # SR785.py functions, like .writeSpecHeader, .writeTFHeader?
+        # This makes sense if this script will be a general TF getter...
+
+        dataFile.write('#---------- Instrument Data -----------\n')
+        if params['dataMode'] == 'ReIm':
+            dataFile.write('# [Freq(Hz) real(h) imag(h)]\n')
+        elif params['dataMode'] == 'MagPhDeg':
+            dataFile.write('# [Freq(Hz) Magnitude(Absolute) Phase(deg)]\n')
+        elif params['dataMode'] == 'dBPhDeg':
+            dataFile.write('# [Freq(Hz) Magnitude(dB) Phase(deg)]\n')
+        else:
+            print('Bad Datamode value in parameter file! Using dBPhDeg')
+            dataFile.write('# [Freq Magnitude(dB) Phase(deg)]\n')
+            params['dataMode'] = 'dbPhDeg'
+
+        #Write data to file
+        for i in range(len(freq)):
+            dataFile.write(freq[i]+'    '+data[0][i]+'     '+data[1][i]+'\n')
+
+        dataFile.close()
+
+    print "done."
+    gpibObj.close()
+        
+    if params['plotResult'] is True:
+        print 'Plotting!'
+        dataArray = np.transpose(np.vstack((np.array(freq,dtype='float'),
+                                            np.array(data,dtype='float'))))
+        fig = plt.figure(figsize=(11,8))
+
+        if params['plotRefs'] is True:
+            refFiles = [ rf for rf in os.listdir(params['refDir']) 
+                         if (params['nameRoot'] in rf and '.txt' in rf and
+                             rf != dataFileName)]
+            print 'Found ' + str(len(refFiles)) + ' references; plotting...'
+            refFiles.sort()
+            for filename in refFiles:
+                with open(params['refDir']+filename,'r') as rf:
+                    tLine = [line for i, line in enumerate(rf) if i==1]
+                refArray = np.loadtxt(params['refDir']+filename,comments='#')
+                tfPlot(refArray,params,tLine[0][tLine[0].find(':')+2:-1])
+
+        tfPlot(dataArray,params,params['timeStamp'])
+        
+
+        if params['saveFig'] is True:
+            plt.savefig(outDir+fileRoot+'.pdf',format='pdf')
+
+        plt.show()    
+
+
+if __name__ == "__main__":
+    templateFile = '/opt/rtcds/caltech/c1/scripts/general/' \
+                   'netgpibdata/TFSR785template.yml' 
+    parser = argparse.ArgumentParser() 
+    parser.add_argument('paramFile', nargs='?',
+                        help = 'The Parameter file for the measurement.' \
+                               ' If not specified, uses the template parameter'\
+                               ' file in scripts/general/netgpibdata/',
+                        default=templateFile)
+    parser.add_argument('--template', help='Copy template parameter file to'\
+                                           ' current dir, no measurement is'\
+                                           ' made.',
+                        action='store_true')
+    args = parser.parse_args()
+    if args.template:
+        import shutil
+        print 'Copying ' +templateFile+ ' to ' + os.getcwd()
+        shutil.copyfile(templateFile, os.getcwd()+'/TFSR785template.yml')
+        print 'Done!'
+    else:    
+        main(args.paramFile)

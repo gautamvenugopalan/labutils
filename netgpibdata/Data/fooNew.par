@@ -1,0 +1,28 @@
+Title: fooNew
+############## Spectral Measurement Parameters #########################
+Frequency Span: +1.99000000000000E+008
+
+Start Frequency: +1.00000000000000E+006
+
+Stop Frequency: +2.00000000000000E+008
+
+Number of Points: 801
+Number of Averages: 4
+Auto Attenuation: 0
+####################################################################
+# AG4395A Measurement
+# Timestamp: Feb 11 2015 - 11:58:38
+#---------- Measurement Parameters ------------
+# Start Frequency (Hz): 1000000.0
+# Stop Frequency (Hz): 200000000.0
+# Frequency Points: 801
+# Measurement Format: SPECT
+# Measuremed Input: B
+#---------- Analyzer Settings ----------
+# Number of Averages: 4
+# Auto Bandwidth: Off
+# IF Bandwidth: 100000.0
+# Input Attenuators (R,A,B): 20dB 20dB 0dB 
+# Units: DBM
+#---------- Measurement Data ----------
+# [Freq(Hz) Chan 1 ]

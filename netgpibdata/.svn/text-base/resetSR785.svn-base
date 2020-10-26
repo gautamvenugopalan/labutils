@@ -1,0 +1,28 @@
+#! /usr/bin/env python
+#resetSR785.py -i ip_address -a gpib_address
+#Reset SR785.py
+
+import optparse
+import SR785
+import netgpib
+
+parser = optparse.OptionParser()
+parser.add_option("-a", "--address",
+                  dest="gpibAddress", type="int", default=10,
+                  help="GPIB device address")
+parser.add_option("-i", "--ip",
+                  dest="ipAddress", default="vanna",
+                  help="IP address/Host name")
+
+(options, args) = parser.parse_args()
+
+#Create a netGPIB object
+gpibObj = netgpib.netGPIB(options.ipAddress, options.gpibAddress, '\004',0)
+
+SR785.reset(gpibObj)
+gpibObj.command("OUTX0")
+print "Instrument ID: ",
+idnString=gpibObj.query("*IDN?")
+print idnString.splitlines()[-1]
+time.sleep(0.1)
+print 'Done.'

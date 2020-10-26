@@ -1,0 +1,107 @@
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/45235/trunk/getgpibdata/netgpibdata
+END
+AGmeasure
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/AGmeasure
+END
+SPAG4395Atemplate.yml
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/SPAG4395Atemplate.yml
+END
+TFSR785template.yml
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/TFSR785template.yml
+END
+netgpib.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/!svn/ver/45235/trunk/getgpibdata/netgpibdata/netgpib.py
+END
+SR785.py
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/SR785.py
+END
+netgpibdata
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/!svn/ver/45192/trunk/getgpibdata/netgpibdata/netgpibdata
+END
+NWAG4395A
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/44843/trunk/getgpibdata/netgpibdata/NWAG4395A
+END
+HP8591E_param.yml
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/!svn/ver/44843/trunk/getgpibdata/netgpibdata/HP8591E_param.yml
+END
+SPSR785template.yml
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/SPSR785template.yml
+END
+HP8591E.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/HP8591E.py
+END
+FSS_watcher.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/!svn/ver/45201/trunk/getgpibdata/netgpibdata/FSS_watcher.py
+END
+termstatus.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/!svn/ver/45192/trunk/getgpibdata/netgpibdata/termstatus.py
+END
+TFAG4395Atemplate.yml
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/!svn/ver/45235/trunk/getgpibdata/netgpibdata/TFAG4395Atemplate.yml
+END
+AG4395A.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/!svn/ver/45235/trunk/getgpibdata/netgpibdata/AG4395A.py
+END
+SRmeasure
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/svn/!svn/ver/46029/trunk/getgpibdata/netgpibdata/SRmeasure
+END
+getMCerr4395.sh
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/!svn/ver/45192/trunk/getgpibdata/netgpibdata/getMCerr4395.sh
+END
+SPAG4395A.py
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/!svn/ver/44776/trunk/getgpibdata/netgpibdata/SPAG4395A.py
+END

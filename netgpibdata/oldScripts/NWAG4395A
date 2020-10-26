@@ -1,0 +1,311 @@
+#! /usr/bin/env python
+# this module allows setting of simple scan parameters over GPIB
+
+import math
+import AG4395A
+import optparse
+import netgpib
+import time
+import os
+import sys
+
+def RunAG4395Scan(StartFreq,StopFreq,ChunkSize,FileStem,Averages,Directory,options,verbosity=2):    
+    #The parameters passed individually are selected either from the cl inputs or from the batch file
+    #any additional options will just be read in from the command line and parsed internally 
+    device_name='AG4395A'
+  #  ipAddress='vanna.martian'
+  #  gpibAddress = 10
+    
+    # # Open socket
+    print('Connecting to '+str(options.ipAddress))
+
+     #Create a netGPIB object
+    gpibObj = netgpib.netGPIB(options.ipAddress, options.gpibAddress, '\004',0)
+    time.sleep(0.1)
+    
+    gpibObj.command('NA') # network analyzer mode
+    time.sleep(0.1)
+    if options.mode == 'BR':
+        gpibObj.command('MEAS BR') # measure mode (A/R, B/R)
+    else:
+        gpibObj.command('MEAS AR') # measure mode (A/R, B/R)
+    time.sleep(0.1)
+    
+    gpibObj.command('DUAC ON') # dual channel ON
+    time.sleep(0.1)
+    gpibObj.command('SWETAUTO') # auto sweep time
+    time.sleep(0.1)
+    if options.sweepType == 'Linear':
+        gpibObj.command('SWPT LINF') # sweep lin freq.
+    else:
+        gpibObj.command('SWPT LOGF') # sweep log freq.
+    time.sleep(0.1)
+
+    #parse source power to make it machine readable
+
+    if len(options.excAmp)>1:
+        for iX in range(1,len(options.excAmp)): # start at 1 b/c 1st digit might be a '-'
+            # & we don't need to check it
+            if options.excAmp[iX].isdigit()==0:
+                xVal = float(options.excAmp[:iX])
+                if options.excAmp[iX]=='m':
+                    mult = 0.001
+                elif options.excAmp[iX]=='u':
+                    mult = 0.000001
+                else:
+                    mult = 1
+                    break
+            if iX == len(options.excAmp)-1:
+                xVal = float(options.excAmp)
+    else:
+        xVal = float(options.excAmp[0])
+        
+    if options.excAmp.find("V") != -1:
+        voltVal = xVal*mult # value in Volts
+        dBmVal = 20*math.log(voltVal/0.001,10)
+        
+    else:
+        if verbosity>0:
+            print('Using dBm as amplitude units')
+        dBmVal = xVal
+        
+    gpibObj.command('POWE '+str(dBmVal)) # units are in dBm
+    time.sleep(0.1)        
+
+    gpibObj.command('TRGS INT') # get triggering from internal 
+
+    #parse the start, stop and chunk frequencies into machine readable integers
+    if verbosity==2:
+        print('parsing')
+
+    for i in range(3):
+        tmp = ""
+        val = 0
+        mult = 0
+
+        if i==0:
+            tmp = StartFreq
+        elif i==1:
+            tmp = StopFreq
+        else:
+            tmp = ChunkSize
+
+        Hindex = tmp.find("Hz")
+        if Hindex == -1:
+            mult=1
+            val = float(tmp)
+        elif tmp[Hindex-1].isdigit():
+            mult=1
+            val = float(tmp[0:Hindex])
+        else:
+            val = float(tmp[0:Hindex-1])
+            if tmp[Hindex-1]=='k' or tmp[Hindex-1]=='K':
+                mult=1000
+            elif tmp[Hindex-1]=='M':
+                mult=1000*1000
+            elif tmp[Hindex-1]=='G':
+                mult=1000*1000*1000
+            elif tmp[Hindex-1]=='m':
+                mult =0.001
+            elif tmp[Hindex-1]=='u':
+                mult=0.000001
+            else:
+                print('error, cannot understand: '+tmp[Hindex-1:])
+        if i==0:
+            startFval = val*mult
+        elif i==1:
+            stopFval = val*mult
+        else:
+            chunkSval = val*mult
+
+    #Sanity Check the inputs
+    if startFval>stopFval:
+        tmp = stopFval
+        stopFval = startFval
+        startFval=tmp
+    if chunkSval <= 0:
+        print('Error: Chunk Size less than or equal to 0')
+        raise Exception('Invalid Chunk Size')
+    if chunkSval>stopFval-startFval:
+        print('WARNING: Chunk Size greater than total scan range')
+    
+
+    #checking that the directory specified in -d exists, and creating if not
+    if os.access(Directory,os.F_OK)==0:
+        os.mkdir(Directory)
+
+    if verbosity>0:
+        print('\033[31m')
+        print('Scanning from: '+str(startFval)+' Hz to: '+str(stopFval)+' Hz in '+str(chunkSval)+' Hz steps')
+        print('\033[0m')
+    if 1:
+        ## initialize setup
+
+  
+       #Sanitize averaging input
+        if Averages<1:
+            averages = 1
+        else:
+            averages = Averages
+
+        #Sanitize settling time input
+        if options.settle<1:
+            settlingTime = 1
+        else:
+            settlingTime = options.settle
+
+        #Sanitize Number of Point input
+        if options.numOfPoints >801:
+            nPoints = 801
+        elif options.numOfPoints<1:
+            nPoints =1
+        else:
+            nPoints = options.numOfPoints
+
+        for jj in range (1,2):
+            gpibObj.command('CHAN %d' %jj) # choose the active channel
+            time.sleep(0.1)
+            gpibObj.command('AVER ON') # average ON
+            time.sleep(0.1)
+            gpibObj.command('AVERFACT '+str(averages)) #setup averaging as necessary
+            time.sleep(0.1)
+            gpibObj.command('POINT '+str(nPoints)) # number of points, max=801
+            time.sleep(0.1)
+
+
+        for iStartFreq in range(startFval,stopFval,chunkSval):
+            if verbosity>0:
+                print('\033[37m')
+                print('-----------------------------------')
+                print('Sweeping from '+str(iStartFreq)+' Hz to '+str(iStartFreq+chunkSval)+' Hz')
+                print('\033[0m')
+
+            gpibObj.command('STAR '+str(iStartFreq)) # set the start frequency
+            time.sleep(0.1)
+            gpibObj.command('STOP '+str(iStartFreq+chunkSval)) # set the stop frequency
+            time.sleep(0.1)
+            gpibObj.command('NUMG '+str(averages+settlingTime+2))     # Number of groups must be >= averaging factor
+            time.sleep(0.1)
+            #gpibObj.command('*TRG') # triggers the measurement to start
+
+            gpibObj.query('HOLD?')  # flushes the HOLD? buffer so that the wait will read correctly
+            time.sleep(1)           # ensures we don't read the buffer too quickly 
+            while gpibObj.query('HOLD?')!='1\n': # waits until the current measurement is done
+                time.sleep(0.5)                  # the NA will enter HOLD mode (1) when the sweep has finished
+
+            #Opening data (.dat) and parameter (.par) file
+            dataFileName=options.dir+'/'+options.fileStem+'_'+str(iStartFreq)+'.dat' 
+            paramFileName=options.dir+'/'+options.fileStem+'_'+str(iStartFreq)+'.par'
+            dataFile = open(dataFileName,'w')
+            paramFile = open(paramFileName,'w')
+
+            #getting data
+            if not verbosity==2: # suppress all the dialog from getdata and getparam if desired
+                saveout=sys.stdout
+                dnull = open('/dev/null','w') # this is pretty hacky, but I guess I am not supposed to touch
+                sys.stdout=dnull # any of the original netgpib files
+                
+            AG4395A.getdata(gpibObj, dataFile, paramFile)
+            AG4395A.getparam(gpibObj, paramFileName, dataFile, paramFile)
+            if not verbosity==2:
+                sys.stdout=saveout
+                dnull.close()
+            dataFile.close()
+            paramFile.close()
+
+    gpibObj.close()
+
+
+#==========================================================================================
+#END FUNCTION
+#==========================================================================================
+
+
+#Usage text
+usage = """usage: %prog [options]
+
+This command will run a scan on the AG4395 Network Analyzer and download the result(s) as a (series of) .dat files.  This can be used to increase the effective resolution of the NA and to perform a scan with variable resolution over different frequency ranges.
+"""
+
+#Parse options
+parser = optparse.OptionParser(usage=usage)
+parser.add_option("-s","--startFreq",dest="startF",
+                  default="0Hz",help="Start Frequency of the scan")
+parser.add_option("-e","--endFreq",dest="endF",
+                  default="500MHz",help="End Frequency of the scan")
+parser.add_option("-c","--chunkSize",dest="chunkS",
+                  default="5kHz",help="size of the individual sweeps in the range")
+parser.add_option("-f","--fileStem",dest="fileStem",
+                  default="data",help="Base name for file containing individual scan results")
+parser.add_option("-a","--averages",dest="aver",
+                  type="int",default=1,help="Number of averages (1=no averaging)")
+parser.add_option("-d","--directory",dest="dir",
+                  default="./",help="Specify a destination directory for the data files")
+parser.add_option("-m","--mode",dest="mode",
+                  default="AR",help="Specify mode of network analyzer (AR = A/R, BR=B/R)")
+parser.add_option("-b","--batch",dest="BatchFile",
+                   default="",help="""Enables batch scan mode (options specified in the file supercede those passed on the commandline).  File format must be csv with columns: Start Freq, Stop Freq, (Chunk Size), (Averages),(exc amplitude),(log/Linear).  If Chunk Size and/or Averages is omitted, it will be reused from the previous line (they must be included on the first line).""")
+parser.add_option("-i", "--ip",
+                  dest="ipAddress", default="vanna.martian",
+                  help="IP address/Host name")
+parser.add_option("-g", "--gpibaddress",
+                  dest="gpibAddress", type="int", default=10,
+                  help="GPIB device address")
+parser.add_option("-n", "--numpoints",
+                  dest="numOfPoints", type="int", default="800",
+                  help="Number of frequency points")
+parser.add_option("--sweep",
+                  dest="sweepType", type="string", default="Log",
+                  help="Sweep type: Log or Linear (default: Log)")
+parser.add_option("-x", "--excamp",
+                  dest="excAmp", default="0",
+                  help="Excitation amplitude (in dBm)")
+parser.add_option("--settlingTime",dest="settle",type="int",default="3",
+                  help="specify the number of cycles to settle before each measurement")
+
+(options, args) = parser.parse_args()
+
+
+if not os.access(options.BatchFile,os.R_OK):
+    RunAG4395Scan(options.startF,options.endF,options.chunkS,
+                  options.fileStem,options.aver,options.dir,options)
+else:
+    #batch mode
+    print('Using batch mode with batch file: '+options.BatchFile)
+    print('\t file stems will be: '+options.fileStem+'_line<Line Number>')
+    bfile = open(options.BatchFile,'r')
+    try:
+        lineNum=0
+        for line in bfile:
+            if line[0]=='#': # comments
+                continue
+            Params = line.split(',')
+            if lineNum==0 and len(Params)<4:
+                print('Invalid batch file format: first line does not specify enough scan parameters, see function help')
+                raise Exception('Invalid File Format')
+            if lineNum>0 and len(Params)<2:
+                print('Invalid batch file format: line '+lineNum+' does not specify enough scan information')
+                raise Exception('Invalid File Format')
+
+            #set parameters
+            startFreq = Params[0]
+            stopFreq = Params[1]
+            if len(Params)>=3:
+                if Params[2]!='': #chunk size
+                    chunkSize = Params[2]
+            if len(Params)>=4: 
+                if Params[3]!='': #number of averages
+                    numAv = Params[3]
+            if len(Params)>=5:
+                if Params[4]!='': #exc amplitude
+                    options.excAmp = Params[4]
+            if len(Params)>=6:
+                if Params[5]!='': #log/lin
+                    options.sweepType = Params[5]
+            
+            fStem = options.fileStem+'_'+str(lineNum)
+            #Run the scan and make it less verbose
+            RunAG4395Scan(startFreq,stopFreq,chunkSize,fStem,numAv,options.dir,options,1)
+            lineNum+=1
+    finally:
+        bfile.close()

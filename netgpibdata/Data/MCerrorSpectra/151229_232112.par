@@ -1,0 +1,24 @@
+Title: Data/MCerrorSpectra/151229_232112
+############## Spectral Measurement Parameters #########################
+Frequency Span: +2.99900000000000E+006
+
+Start Frequency: +1.00000000000000E+003
+
+Stop Frequency: +3.00000000000000E+006
+
+Number of Points: 801
+Number of Averages: 4
+Auto Attenuation: 0
+####################################################################
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in Data/MCerrorSpectra/151229_232112.dat
+Data format: Freq, Spectrum(W)
+##################### Measurement Parameters #############################
+Analyzer Type: Spectrum Analyzer
+CH1 measurement: A
+CH1 bandwidth: +1.00000000000000E+003
+CH1 auto bandwidth: Off
+R attenuator: 20dB
+A attenuator: 20dB
+B attenuator: 20dB
+Source power: +0.000000E+000dBm

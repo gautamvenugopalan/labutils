@@ -1,0 +1,49 @@
+netGPIB
+=======
+
+netGPIB is a collection of python modules and scripts for
+communicating with GPIB devices over TCP/IP networks.  This page
+explains the usage of the package.
+
+What can I do with it
+---------------------
+
+Here is the list of commands included in the package:
+
+netgpibdata: Download and save data from a GPIB device.
+netgpibcmd: Send commands to a GPIB device.
+plotgpibdata: Plot the data downloaded by netgpibdata
+TFSR785: Perform a transfer function measurement with an SR785. Then download the results from it.
+SPSR785: Perform a spectral measurement with an SR785. Then download the results from it.
+resetSR785: Remotely reset an SR785.
+NWAG4395A: Perform network analyzer measurements using the AG4395. Then download the results from it.
+
+Here is the list of modules provided by the package:
+
+netgpib.py: Provide a class to access a network-GPIB converter.  Includes modules for the following instruments:
+    * SR785.py
+    * AG4395A.py
+    * HP8590.py
+    * HP3563A.py
+gpibplot.py: Provide parsing of the parameter files and plot functions.
+termstatus.py: A small utility class for showing status information on a terminal.
+
+Installation
+------------
+
+If you want to install the package in your computer, just copy or
+check-out the netgpibdata directory into somewhere. You may want to
+add this directory to your $PATH environmental variable. Of course you
+need to have <URL:http://www.python.org/:python> installed in your
+system. The minimum version of python confirmed to work is v2.4. If
+you want to plot the downloaded data, you need
+<URL:http://matplotlib.sourceforge.net/:matplotlib> and
+<URL:http://numpy.scipy.org/:numpy> modules installed. In most cases,
+these modules are available from your distribution's package system.
+
+Usage
+-----
+
+For all the commands listed above, you can get a quick help by
+invoking them with '-h' option. This will show a list of available
+options with some descriptions.

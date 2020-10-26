@@ -1,0 +1,17 @@
+#Title: Data/MCOLG_150104_210805
+#Memo: 
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in Data/MCOLG_150104_210805.dat
+Data format: Freq, Real Part(), Imaginary Part()
+##################### Measurement Parameters #############################
+Analyzer Type: Network Analyzer
+CH1 measurement: AR
+CH2 measurement: AR
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: On
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: On
+R attenuator: 10dB
+A attenuator: 10dB
+B attenuator: 20dB
+Source power: -2.000000E+001dBm

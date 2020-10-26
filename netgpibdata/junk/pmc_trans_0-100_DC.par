@@ -1,0 +1,22 @@
+Title: pmc_trans_0-100_DC
+Memo: 
+#SR785 parameter file
+#This file contains measurement parameters for the data saved in pmc_trans_0-100_DC.dat
+##################### Measurement Parameters #############################
+Measurement Group:  "FFT" "FFT"
+Measurements:  "FFT 1" "Capture Buffer 1"
+View:  "Log Magnitude" "Real Part"
+Unit:  "Vrms/ûHz" "Vpk"
+
+##################### Input Parameters #############################
+Input Source: Analog
+Input Mode: Single ended, Single ended
+Input Grounding: Float, Grounded
+Input Coupling: DC, AC
+Input Range: 0.0dBVpk, 0.0dBVpk
+Auto Range: On, On
+Auto Range Mode: Up Only, Normal
+Anti-Aliasing Filter: On, On
+##################### Source Parameters #############################
+Source Type: Sine
+Source Amplitude: 1000.0mVpk

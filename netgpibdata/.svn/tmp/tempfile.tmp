@@ -1,0 +1,69 @@
+#! /usr/bin/env python
+"""getgpibdata.py [-f filename] [-d devicename] [-i ip_address] [-a gpib_address]
+
+ This script will get data from various GPIB devices through network and save the data into a data file.
+ The name of the data file can be specified by '-f' option. If '-f myfile' is specified, 
+ myfile.dat is the name of the data file. Also myfile.par will be created.
+ The format of myfile.dat should be explained in myfile.par along with various measurement
+ parameters.
+ Yoichi Aso  Sep 22 2008"""
+
+import re
+import sys
+import math
+from optparse import OptionParser
+from socket import *
+import SR785
+import AG4395A
+import gpib
+
+#Parse options
+parser = OptionParser()
+parser.add_option("-f", "--file", dest="filename",
+                  help="Output file name without an extension", default="data")
+parser.add_option("-d", "--device",
+                  dest="deviceName", default="SR785",
+                  help="A GPIB device name. Default = SR785.")
+parser.add_option("-a", "--address",
+                  dest="gpibAddress", type="int", default=10,
+                  help="GPIB device address")
+parser.add_option("-i", "--ip",
+                  dest="ipAddress", default="gpib01",
+                  help="IP address/Host name")
+
+(options, args) = parser.parse_args()
+
+# # Open socket
+
+# print('Connecting to '+str(options.ipAddress))
+
+# netAddr=(options.ipAddress, 1234)
+# netSock = socket(AF_INET, SOCK_STREAM)
+# netSock.connect(netAddr)
+
+#Create a netGPIB object
+
+gpibObj = gpib.netGPIB(options.ipAddress, options.gpibAddress, '\004',0)
+
+# open files
+dataFileName=options.filename+'.dat'
+paramFileName=options.filename+'.par'
+dataFile = open(dataFileName,'w')
+paramFile = open(paramFileName,'w')
+
+print('Data will be written into '+dataFileName)
+print('Parameters will be written into '+paramFileName+'\n')
+
+#Call suitable functions for getting data
+if options.deviceName == 'SR785':
+    SR785.getdata(gpibObj, dataFile, paramFile)
+    SR785.getparam(gpibObj, options.filename, dataFile, paramFile)
+elif options.deviceName == 'AG4395A':
+    AG4395A.getdata(gpibObj, dataFile, paramFile)
+    AG4395A.getparam(gpibObj, options.filename, dataFile, paramFile)
+
+dataFile.close()
+paramFile.close()
+gpibObj.close()
+
+

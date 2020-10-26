@@ -1,0 +1,22 @@
+Title: CM_OL_BOOST
+Memo: 
+#SR785 parameter file
+#This file contains measurement parameters for the data saved in CM_OL_BOOST.dat
+##################### Measurement Parameters #############################
+Measurement Group:  "Swept Sine" "Swept Sine"
+Measurements:  "Frequency Response" "Frequency Response"
+View:  "Log Magnitude" "Phase"
+Unit:  "dB" "deg"
+
+##################### Input Parameters #############################
+Input Source: Analog
+Input Mode: Single ended, Single ended
+Input Grounding: Float, Float
+Input Coupling: AC, AC
+Input Range: -10.0dBVpk, -36.0dBVpk
+Auto Range: Off, Off
+Auto Range Mode: Up Only, Normal
+Anti-Aliasing Filter: On, On
+##################### Source Parameters #############################
+Source Type: Sine
+Source Amplitude: 100.0mVpk

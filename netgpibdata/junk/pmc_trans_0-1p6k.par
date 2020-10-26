@@ -1,0 +1,22 @@
+Title: pmc_trans_0-1p6k
+Memo: 
+#SR785 parameter file
+#This file contains measurement parameters for the data saved in pmc_trans_0-1p6k.dat
+##################### Measurement Parameters #############################
+Measurement Group:  "FFT" "FFT"
+Measurements:  "Power Spectrum 2" "Frequency Response"
+View:  "Log Magnitude" "Phase"
+Unit:  "Vpký/Hz" "deg"
+
+##################### Input Parameters #############################
+Input Source: Analog
+Input Mode: Single ended, Single ended
+Input Grounding: Grounded, Float
+Input Coupling: DC, DC
+Input Range: 22.0dBVpk, 0.0dBVpk
+Auto Range: Off, On
+Auto Range Mode: Up Only, Normal
+Anti-Aliasing Filter: On, On
+##################### Source Parameters #############################
+Source Type: Sine
+Source Amplitude: 1000.0mVpk

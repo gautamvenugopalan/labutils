@@ -1,0 +1,327 @@
+#!/usr/bin/env python
+#
+# TSFR measurement script for suspensions electronics testing (SR785).  Modified from
+# code by Yoichi Aso.
+# cmreed 20100329
+# Edited by Carl Adams for LLO testing on windows machine 20100406
+# Reedited by Edward R    
+# Overhauled by Ericq - 2014
+import sys, os, time
+import datetime
+import netgpib
+import SR785
+import termstatus
+import matplotlib.pyplot as plt
+import numpy as np
+import yaml
+import argparse
+
+def readParams(paramFile):
+    print('Reading parameters from '+paramFile)
+    with open(paramFile,'r') as f:
+        reader = yaml.load_all(f)
+        params = reader.next()
+        reader.close()
+    return(params)
+
+
+def connectGPIB(ipAddress,gpibAddress):
+    print('Connecting to '+str(ipAddress)+':'+str(gpibAddress)+' ...'),
+    gpibObj=netgpib.netGPIB(ipAddress, gpibAddress, '\004',0)
+    print('done.')
+
+    #Set output to GPIB
+    gpibObj.command("OUTX0")
+
+    # Print IDN
+    print "Instrument ID: ",
+    idnString=gpibObj.query("*IDN?")
+    print idnString.splitlines()[-1]
+    time.sleep(0.1)
+    return(gpibObj)
+
+
+def setParameters(gpibObj,params):
+    print('Setting up parameters for the measurement...')
+    # Expand dictionary keys to local variables. I.e. params['key']->key
+    globals().update(params)
+
+    if numOfPoints <= 100:
+        fRes=0 # Resolution is 100 points
+    elif numOfPoints <= 200:
+        fRes=1 # Resolution is 200 points
+    elif numOfPoints <= 400:
+        fRes=2 # Resolution is 400 points
+    else:
+        fRes=3 # Resolution is 800 points
+
+    if dualChannel == "dual":
+        gpibObj.command('DFMT1') # Dual display
+        numDisp=2
+    else:
+        gpibObj.command('DFMT0') # single display
+        numDisp=1
+
+    # Input Settings
+    if inputCoupling1 == "AC":
+        icp1="1"
+    else:
+        icp1="0"
+    gpibObj.command('I1CP'+icp1) #CH1 Input Coupling
+
+    if inputCoupling2 == "AC":
+        icp2="1"
+    else:
+        icp2="0"
+    gpibObj.command('I2CP'+icp2) #CH2 Input Coupling
+
+    if inputGND1 == "Float":
+        igd1="0"
+    else:
+        igd1="1"
+    gpibObj.command('I1GD'+igd1) #CH1 Input GND
+
+    if inputGND2 == "Float":
+        igd2="0"
+    else:
+        igd2="1"
+    gpibObj.command('I2GD'+igd2) #CH2 Input GND
+
+    gpibObj.command('A1RG0') #AutoRange Off
+    gpibObj.command('A2RG0') #AutoRange Off
+    if arMode == "Tracking":
+        arModeID='1'
+    else:
+        arModeID='0'
+    gpibObj.command('I1AR'+arModeID) #Auto Range Mode 
+    gpibObj.command('I2AR'+arModeID) #Auto Range Mode 
+    gpibObj.command('A1RG1') #AutoRange On
+    gpibObj.command('A2RG1') #AutoRange On
+    gpibObj.command('I1AF1') #Anti-Aliasing filter On
+    gpibObj.command('I2AF1') #Anti-Aliasing filter On
+
+    if inputDiff1 == "A":
+        idf1="0"
+    else:
+        idf1="1"
+    gpibObj.command('I1MD'+idf1) #CH1 Input A-B = 1; A = 0
+
+    if inputDiff2 == "A":
+        idf1="0"
+    else:
+        idf1="1"
+    gpibObj.command('I2MD'+idf1) #CH2 Input A-B = 1; A = 0
+
+    # Set measurement type, displays
+
+    gpibObj.command('MGRP2,0') # Measurement Group = FFT
+    gpibObj.command('ISRC1')   # Input = Analog
+
+    if baseFreq == "102.4kHz":
+        gpibObj.command('FBAS2,1')  # Base Frequency = 102.4kHz
+    else:
+        gpibObj.command('FBAS2,0') # Base Frequency = 100.0kHz
+
+    if  dataMode == "dbVrms/rtHz": 
+        for disp in range(numDisp):
+            gpibObj.command('UNDB'+str(disp)+','+str(1))   # dB ON
+            gpibObj.command('UNPK'+str(disp)+','+str(0))   # Vrms OFF
+    else:
+        for disp in range(numDisp):
+            gpibObj.command('UNDB'+str(disp)+','+str(0))   # dB OFF
+            gpibObj.command('UNPK'+str(disp)+','+str(2))   # Vrms ON
+
+    for disp in range(numDisp):
+        gpibObj.command('ACTD'+str(disp)) # Change active display 
+        gpibObj.command('MEAS'+str(disp)+','+str(disp)) # 0:FFT1, 1:FFT2    
+        gpibObj.command('VIEW'+str(disp)+',0') #Log Magnitude
+        gpibObj.command('PSDU'+str(disp)+',1') # PSD ON
+        gpibObj.command('DISP'+str(disp)+',1') # Live display on
+    
+    gpibObj.command('FLIN2,'+str(fRes))     # Frequency resolution
+    gpibObj.command('FAVG2,1')              # Averaging On
+
+    avgModDict = {"None":0, "Vector":1, "RMS":2, "PeakHold":3}
+    if avgMode in avgModDict:
+        avgModID=avgModDict[avgMode]
+    else:
+        avgModID=2
+    gpibObj.command('FAVM2,'+str(avgModID)) # Averaging mode
+    gpibObj.command('FAVT2,0')            # Averaging Type = Linear
+    gpibObj.command('FREJ2,1')            # Overload Reject On
+    gpibObj.command('FAVN2,'+str(numAvg)) # Number of Averaging
+    winFuncDict = {"Uniform":0, "Flattop":1, "Hanning":2, "BMH":3, "Kaiser":4, "Force/Exponential":5, "User":6, "[-T/2,T/2]":7,"[0,T/2]":8,"[-T/4,T/4]":9}
+
+    if windowFunc in winFuncDict:
+        winFuncID=winFuncDict[windowFunc]
+    else:
+        winFuncID=2
+    gpibObj.command('FWIN2,'+str(winFuncID))    # Window function
+    gpibObj.command('FSTR2,'+startFreq)         # Start frequency
+    gpibObj.command('FSPN2,'+spanFreq)          # Frequency span
+    
+
+def measure(gpibObj):
+    #Start measurement
+    print 'Starting Spectrum Measurement' 
+    sys.stdout.flush()
+    gpibObj.command('STRT') #Start
+    #Wait for the measurement to end
+    measuring = True
+    avg=0
+    print 'Averaging completed:'
+    avgStatus=termstatus.statusTxt("0")
+    while measuring:
+        measuring = not int(gpibObj.query('DSPS?1'))
+        avg=int(gpibObj.query("NAVG?0"))
+        avgStatus.update(str(avg))
+        time.sleep(0.3)
+
+    a=int(gpibObj.query("NAVG?0"))
+    avgStatus.end(str(a))
+    gpibObj.command('ASCL0') #Auto scale
+    gpibObj.command('ASCL1') #Auto scale
+    print('done')
+
+
+def download(gpibObj, nDisp):
+    data=list()
+    for disp in range(nDisp):
+        print('Downloading data from display #'+str(disp))
+        (f,d)=SR785.downloadData(gpibObj, disp)        
+        data.append(d)
+    freq=f
+    return(freq, data)
+
+
+def writeHeader(dataFile, params):
+    locals().update(params)
+    dataFile.write('# SR785 Spectrum Measurement\n')
+    dataFile.write('Timestamp: ' + 
+                    time.strftime('%b %d %Y - %H:%M:%S\n', time.localtime()))
+    dataFile.write('#---------- Measurement Setup ------------\n')
+    dataFile.write('Start Frequency: '+startFreq+'\n')
+    dataFile.write('Frequency Span: '+spanFreq+'\n')
+    dataFile.write('Frequency Resolution: '+str(numOfPoints)+'\n')
+    dataFile.write('Number of Averages: '+str(numAvg)+'\n')
+    dataFile.write('Averaging Mode: '+avgMode+'\n')
+    dataFile.write('Window function: '+windowFunc+'\n')
+    dataFile.write('\n')
+
+
+def specPlot(dataArray, params):
+    f = plt.gcf()
+    if params['dualChannel'] == 'dual':
+        axlist=[plt.subplot(211), plt.subplot(212)]
+
+        h = axlist[0].plot(dataArray[:,0],dataArray[:,1])
+        h = axlist[1].plot(dataArray[:,0],dataArray[:,2])
+
+        axlist[0].set_xscale('log')
+        axlist[0].set_ylabel('Magnitude ('+params['dataMode']+')')
+        axlist[0].set_yscale('log')
+        axlist[1].set_xscale('log')
+        axlist[1].set_xlabel('Freq. (Hz)')
+        axlist[1].set_yscale('log')
+        axlist[1].set_ylabel('Magnitude ('+params['dataMode']+')')
+        f.suptitle('SR785 Spectrum Measurement - ' + 
+                time.strftime('%b %d %Y - %H:%M:%S', time.localtime()))
+        axlist[0].axis('tight')
+        axlist[1].axis('tight')
+        axlist[0].grid('on')
+        axlist[1].grid('on')
+    else:
+        axlist=plt.subplot(111)
+        h = axlist.plot(dataArray[:,0],dataArray[:,1])
+        axlist.set_xscale('log')
+        axlist.set_xlabel('Freq. (Hz)')
+        axlist.set_ylabel('Magnitude ('+params['dataMode']+')')
+        axlist.set_yscale('log')
+        f.suptitle('SR785 Spectrum Measurement - ' + 
+                time.strftime('%b %d %Y - %H:%M:%S', time.localtime()))
+        axlist.axis('tight')
+        axlist.grid('on')
+
+
+def main(paramFile):
+    params=readParams(paramFile)
+    if params['measType'] != 'Spectrum':
+        raise ValueError('Wrong measurement type entered in parameter file!')
+    gpibObj = connectGPIB(params['ipAddress'], params['gpibAddress'])
+    #SR785.reset(gpibObj)
+    setParameters(gpibObj,params)
+    if params['dualChannel'] == 'dual':
+        nDisp = 2
+    else:
+        nDisp = 1
+
+    measure(gpibObj)
+    time.sleep(2)
+    (freq, data) = download(gpibObj,nDisp)
+
+
+    fileRoot = params['nameRoot'] + '_' + time.strftime('%d-%m-%Y', time.localtime())
+    # Prevent overwriting
+    outDir = params['saveDir']
+    nOthers = sum([fileRoot in fileName for fileName in os.listdir(outDir)])
+    if nOthers > 0:
+        fileRoot = fileRoot + time.strftime('_%H%M%S', time.localtime())
+    dataFileName = fileRoot+'.txt'
+
+    print('Measurement data will be written into '+dataFileName)
+    
+    with open(dataFileName,'w') as dataFile:
+        writeHeader(dataFile, params)
+        SR785.getparam(gpibObj, dataFile)
+        print('Writing measurement data to file...')
+
+        # Really, I should just read all set parameters, and update dict based
+        # on reality. Write entire header with one function. Put it into 
+        # SR785.py functions, like .writeSpecHeader, .writeTFHeader?
+
+        dataFile.write('#---------- Instrument Data -----------\n')
+        if params['dataMode'] == 'Vrms/rtHz':
+            dataFile.write('# Column format = [Freq'+ nDisp*' Mag(V/rtHz) '+']\n')
+        elif params['dataMode'] == 'dbVrms/rtHz':
+            dataFile.write('# Column format = [Freq'+ nDisp*' Mag(dbV/rtHz) '+']\n')
+        else:
+            print('Bad Datamode value in parameter file! Using Vrms/rtHz')
+            dataFile.write('# Column format = [Freq'+ nDisp*' Mag(V/rtHz) '+']\n')
+            params['dataMode'] = 'Vrms/rtHz'
+        #Write data to file
+        for i in range(len(freq)):
+            if nDisp == 2:
+                dataFile.write(freq[i]+'    '+data[0][i]+'     '+data[1][i]+'\n')
+            else:
+                dataFile.write(freq[i]+'    '+data[0][i] + '\n')
+        dataFile.close()
+
+    print "done."
+    gpibObj.close()
+
+    if params['plotResult'] is True:
+        print 'Plotting!'
+        dataArray = np.transpose(np.vstack((np.array(freq,dtype='float'),
+                                            np.array(data,dtype='float'))))
+        f = plt.figure()
+        specPlot(dataArray,params)
+        if params['saveFig'] is True:
+            plt.savefig(fileRoot+'.pdf',format='pdf')
+        plt.show()
+        
+if __name__ == "__main__":
+    templateFile = '/opt/rtcds/caltech/c1/scripts/general/netgpibdata/SPSR785template.yml' 
+    parser = argparse.ArgumentParser() 
+    parser.add_argument('paramFile', nargs='?',
+                        help = 'The Parameter file for the measurement. If not specified, uses the template parameter file in s/general/netgpibdata/',
+                        default=templateFile)
+    parser.add_argument('--template', help='Copy template parameter file to current dir, no measurement is made.',
+                        action='store_true')
+    args = parser.parse_args()
+    if args.template:
+        import shutil
+        print 'Copying ' +templateFile+ ' to ' + os.getcwd()
+        shutil.copyfile(templateFile, os.getcwd()+'/SPSR785template.yml')
+        print 'Done!'
+    else:    
+        main(args.paramFile)

@@ -1,0 +1,17 @@
+Title: MCboard_01
+Memo: 
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in MCboard_01.dat
+Data format: Freq, Real Part(), Imaginary Part()
+##################### Measurement Parameters #############################
+Analyzer Type: Network Analyzer
+CH1 measurement: AR
+CH2 measurement: AR
+CH2 bandwidth: +3.00000000000000E+002
+CH2 auto bandwidth: Off
+CH2 bandwidth: +3.00000000000000E+002
+CH2 auto bandwidth: Off
+R attenuator: 20dB
+A attenuator: 20dB
+B attenuator: 20dB
+Source power: -3.300000E+001dBm

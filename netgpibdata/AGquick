@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+import netgpib
+import AG4395A
+import time
+import os
+
+ipAdd = raw_input('Enter IP (hostname or raw): ')
+gpibAdd = raw_input('Enter GPIB address (usually 10): ')
+memo = raw_input('Enter memo for file header: ')
+
+fileRoot = ('AG4395A_' + 
+            time.strftime('%d-%m-%Y', time.localtime()) + 
+            time.strftime('_%H%M%S', time.localtime()))
+fileDir = os.getcwd()+'/'
+dataFileName = fileRoot+'.txt'
+
+gpibObj=netgpib.netGPIB(ipAdd,gpibAdd,'\004',0)
+
+with open(fileDir+dataFileName,'w') as outFile:
+    outFile.write('# AG4395A Measument data\n')
+    outFile.write('# '+memo+'\n')
+    AG4395A.getdata(gpibObj,outFile,[])

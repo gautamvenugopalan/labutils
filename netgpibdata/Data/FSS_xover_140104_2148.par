@@ -1,0 +1,17 @@
+#Title: Data/FSS_xover_140104_2148
+#Memo: 
+Agilent 4395A parameter file
+This file contains measurement parameters for the data saved in Data/FSS_xover_140104_2148.dat
+Data format: Freq, Real Part(), Imaginary Part()
+##################### Measurement Parameters #############################
+Analyzer Type: Network Analyzer
+CH1 measurement: AR
+CH2 measurement: AR
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: Off
+CH2 bandwidth: +1.00000000000000E+002
+CH2 auto bandwidth: Off
+R attenuator: 10dB
+A attenuator: 10dB
+B attenuator: 20dB
+Source power: -1.200000E+001dBm

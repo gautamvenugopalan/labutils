@@ -1,0 +1,11 @@
+#this is a batch file to test the batch functionalities of the 
+#AG4395A_Run script.
+#these lines are commented
+#uncommented lines must be csv format
+#all lines must specify start and stop frequencies
+#the first line must also specify the chunk size and the # of averages
+#chunk size and # of averages will be infered from previous lines if 
+#omitted on subsequent lines
+100Hz,300Hz,200Hz,4
+250Hz,300Hz,10Hz
+800Hz,900Hz,20Hz

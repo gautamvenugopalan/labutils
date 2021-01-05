@@ -14,6 +14,8 @@ import nds2
 import h5py
 import socket
 import timeit
+import nbutils as nbu
+import lmfit
 
 def importParams(paramFile):
     '''
@@ -444,4 +446,174 @@ def DARMloop(ff, filtFile, filts, optGain=1e8, actGainDC=1e-9, delay=200e-6, ret
         return(H, darmDict)
     else:
         return(H)
+def armPole(Ti=1.384e-2, Te=13.7e-6, Eta_arm=50e-6, Larm=37.795):
+    '''
+    Function that calculates the Fabry-Perot arm cavity pole for the 40m.
+
+    Parameters:
+    ------------
+    Ti: float
+        ITM power transmissivity, Defaults to 1.384 %.
+    Te: float
+        ETM power transmissivity. Defaults to 13.7 ppm.
+    Tp: float
+        PRM power transmissivity. Defaults to 5.637 %.
+    Eta_arm: float
+        Arm cavity loss. Split equally between ITM and ETM.
+    Larm: float
+        Length of arm cavity [m]. Defaults to 37.795 m.
+
+    Returns:
+    --------
+    fP: float
+        arm cavity pole [Hz].
+    '''
+    ti = np.sqrt(Ti)
+    ri = np.sqrt(1 - Ti - Eta_arm/2)
+    te = np.sqrt(Te)
+    re = np.sqrt(1 - Te - Eta_arm/2)
+    fP = np.log(1/(ri*re)) * scc.c / 2 / Larm / 2 / np.pi
+    return(fP)
+
+
+def XARMloop(ff, filtFile, filts, optGain=1e6, actGainDC=1e-9, delay=200e-6, returnDict=True):
+    '''
+    Calculate the XARM loop.
+    Primarily to invert the noise curve for noise budgeting.
+
+    Parameters:
+    ------------
+    ff: array_like
+        Frequency vector [Hz]
+    filtFile: str
+        Path to the foton filter file to extract the CDS 
+        XARM loop.
+    filts: array_like
+        Indices of filters turned on in the XARM filter bank.
+    optGain: float
+        DARM optical gain [W/m]. Defaults to 1 MW/m.
+    actGainDC: float
+        DC scaling [nm/ct] for the XARM pendulum transfer function.
+        Defaults to 1 nm/ct.
+    delay: float
+        Delay [s] in the XARM loop. Defaults to 200us.
+    returnDict: bool
+        Optionally, return a breakdown of the various pieces
+        composing the XARM loop. This defaults to True.
+
+    Return:
+    --------
+    H: array_like
+        XARM transfer function
+    '''
+    # Pendulum TF
+    f0, Q = 1, 5
+    poles_pend = genUtils.fq2reim(f0,Q).flatten()
+    _, actTF = sig.freqs_zpk([], poles_pend, np.abs(np.prod(poles_pend))*actGainDC, 2*np.pi*ff)
+    #actTF = actGainDC / ff**2
+    # Load the digital filter 
+    filtDict = readFotonFilterFile.readFilterFile(filtFile)
+    digitalFilt = np.array([1,0,0,1,0,0])
+    for ii in filts:
+        digitalFilt = np.vstack((digitalFilt, filtDict['LSC_XARM'][ii]['sosCoeffs']))
+    _, digitalFiltResp = sig.sosfreqz(digitalFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
+    # Violin mode filters
+    violinFilt = np.array([1,0,0,1,0,0])
+    for ii in [3, 5, 9]:
+        violinFilt = np.vstack((violinFilt, filtDict['LSC_ETMX'][ii]['sosCoeffs']))
+    _, violinFiltResp = sig.sosfreqz(violinFilt, worN=2*np.pi*ff, whole=True, fs=2*np.pi*filtDict['fs'])
+    # DARM pole
+    XarmPole = armPole()
+    XarmPoleTF = sig.freqs_zpk([], [-2*np.pi*XarmPole], 2*np.pi*XarmPole, worN=2*np.pi*ff)[1]
+    # Construct the overall loop
+    H = CDSfilts(ff)                    # ADC AA + DAA + DAI + DAC + AI
+    H *= digitalFiltResp                # Digital servo
+    H *= violinFiltResp                 # Violin filters
+    H *= actTF                          # Pendulum TF
+    H *= optGain                        # Optical gain
+    H *= XarmPoleTF                     # DARM pole
+    H *= -1                             # Negative feedback    
+    if returnDict:
+        # Build up a dictionary of the breakdown
+        darmDict = {}
+        darmDict['AA'] = AAfilt(ff)[1]
+        darmDict['DAA'] = DAIfilt(ff)[1]
+        darmDict['CDSfilt'] = digitalFiltResp
+        darmDict['violinfilt'] = violinFiltResp
+        darmDict['DAI'] = DAIfilt(ff)[1]
+        darmDict['DAC'] = DACTF(ff)
+        darmDict['AI'] = AIfilt(ff)[1]
+        darmDict['actuatorTF'] = actTF
+        darmDict['optGain'] = np.ones_like(ff) * optGain * XarmPoleTF
+        darmDict['Total'] = H
+        return(H, darmDict)
+    else:
+        return(H)
+
+def fitTF(measTF, Bchan, Achan, modelFcn, costFcn, filtFile, filts):
+    '''
+    Wrapper to use lmfit to fit a measured
+    TF to a model. Can only fit an overall gain
+    and a delay.
+
+    Parameters:
+    -------------
+    measTF: str
+        Path to a DTT file with the measured TF
+    Bchan: str
+        Numerator channel in DTT file. The TF to be fit is Bchan/Achan.
+    Achan: str
+        Denominator channel in DTT file. The TF to be fit is Bchan/Achan.
+    modelFcn: function
+        Function that can evaluate the model TF at some frequencies.
+    costFcn: function
+        Cost function for lmfit to minimize.
+    filtFile: str
+        Path to the CDS foton file
+    fitls: list
+        List of filters ON during measurement.
+
+    Returns:
+    --------
+    params: lmfit parameter object
+        The best fit gain and delay.
+    '''
+    #Some diagnostics
+    print(f'Path to CDS filter file is "{filtFile}".')
+    print('Filters engaged in loop are:'+ str([f'FM{aa+1}' for aa in filts]))
+    print(f'Path to DTT file with measured TF is "{measTF}".')
+    print(f'Transfer function model is evaluated using "{modelFcn.__name__}".')
+    print(f'Fitting is done by minimizing "{costFcn.__name__}".')
+    ff, TF, coh = nbu.readDTTFile(measTF, Bchan, Achan)
+    params = lmfit.Parameters()
+    params.add('tau', value=300e-6, max=1000e-6, min=60e-6)
+    params.add('gain', value=1e3, min=1, max=1e10)
+    Hmodel = modelFcn(ff[ff!=0], filtFile, filts, returnDict=False)
+    out = lmfit.minimize(resid, params, 
+    args=(ff[ff!=0], TF[ff!=0], coh[ff!=0], Hmodel), method='basinhopping')
+    fitStr = 'Best fit delay is {}, $\mu$s \n best fit gain is {}'.format(out.params['tau']*1e6, out.params['gain'].value)
+    print(fitStr)
+    return(params)
+
+#########################################
+# Utility functions for fitting TFs
+#########################################
+def overallGain(gain, TFmag):
+    return(gain*TFmag)
+
+def delay(tau, TF, ff):
+    return(np.angle(TF*np.exp(-1j*2*np.pi*ff*tau), deg=True))
+
+
+def resid(params, ff, data, coh, model):
+    if len(data) == len(ff) == len(coh == len(model)):
+        modelMag = np.abs(model)*params['gain']
+        modelPhase = delay(params['tau'], model, ff)
+        dataMag = np.abs(data)
+        dataPhase = np.angle(np.conj(data), deg=True)
+        err = np.sum(((dataMag - modelMag)/coh)**2)
+        err += np.sum(((dataPhase - modelPhase)/coh)**2)
+        return(err)
+    else:
+        raise ValueError("Model, data and freq vectors must all be of the same length!")
 

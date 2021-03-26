@@ -324,9 +324,9 @@ def plotData(paramFile, saveFig=False):
     aa.axis('off') # Now aa is the last axis.
     # Add the tables.
     tbl1 = plt.table(cellText=PDtbl, fontsize=14, colLabels=['PD', 'Wht Gain [dB]','$\phi[^{\circ}]$','Z [$\Omega$]', r'$\frac{V_{\mathrm{IF}}}{V_{\mathrm{RF}}}$'],
-         bbox=(-0.2,0.2,1.5,0.5), colWidths=[0.25,0.4,0.2, 0.2,0.2], rowLoc='center', colLoc='center',cellLoc='center')
+         bbox=(-0.2,0.4,1.5,0.5), colWidths=[0.25,0.4,0.2, 0.2,0.2], rowLoc='center', colLoc='center',cellLoc='center')
     tbl2 = plt.table(cellText=actTbl, fontsize=18, colLabels=['DoF', 'Actuator','DC gain [m/ct]', '$f_{\\mathrm{exc}}$ [Hz]'],
-         bbox=(-0.2, -0.1, 1.5, 0.2), colWidths=[0.25,0.3,0.4,0.3], rowLoc='center', colLoc='center', cellLoc='center')
+         bbox=(-0.2, -0.1, 1.5, 0.1*len(DoFdict.keys())), colWidths=[0.25,0.3,0.4,0.3], rowLoc='center', colLoc='center', cellLoc='center')
     tbl1.auto_set_font_size(False)
     tbl2.auto_set_font_size(False)
     tbl1.scale(yscale=2, xscale=1)
@@ -337,8 +337,8 @@ def plotData(paramFile, saveFig=False):
     for (row, col), cell in tbl2.get_celld().items():
         if row==0 or col==0:
             cell.set_text_props(fontproperties=FontProperties(weight='extra bold'))
-    legend = aa.legend(handles,labels,loc=(0.5, 0.8),fontsize=12, ncol=2)
-    aa.text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [W/m] (0.85A/W for InGaAs).\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
+    legend = aa.legend(handles,labels,loc=(0.2, 1),fontsize=12, ncol=3)
+    aa.text(2,1.7,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [W/m] (0.85A/W for InGaAs).\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
     if saveFig:
         figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')
         print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))

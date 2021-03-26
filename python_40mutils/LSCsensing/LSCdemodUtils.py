@@ -22,6 +22,7 @@ import socket
 import tqdm
 import logging
 import pandas as pd
+from matplotlib.font_manager import FontProperties
 
 logging.basicConfig(
     level=os.getenv('LOG_LEVEL', 'INFO'),
@@ -262,13 +263,13 @@ def plotData(paramFile, saveFig=False):
     PDtbl = []
     for kk, vv in par['PDs'].items():
         try:
-            PDtbl.append([kk, vv['gain'], vv['angle'], vv['Z'], vv['conv gain']])
+            PDtbl.append([kk, vv['gain'], vv['angle'], vv['Z'], vv['convGain']])
         except KeyError as e:
             print(e)
             print('The parameter file does not specify all parameters required to convert measured TF to W/m.')
-    for kk, vv in par['DoFs']:
+    for kk, vv in par['DoFs'].items():
         try:
-            actTbl.append([kk, vv['act'], vv['mconv']])
+            actTbl.append([kk, vv['act'], vv['mconv'], vv['freq']])
         except KeyError as e:
             print(e)
             print('The parameter file does not specify all parameters required to convert measured TF to W/m.')
@@ -281,8 +282,11 @@ def plotData(paramFile, saveFig=False):
     # Get the stats
     for kk, PD in enumerate(PDdict.keys()):
         for ii, dof in enumerate(DoFdict.keys()):
-            conv = 10/2**15  # ADC Volts/count conversion
-            conv /= 10**(PDdict[PD]['gain']/20.)  # PD whitening gain
+            conv = 10/2**15  # ADC Volts/count conversion             ---- V_ADC
+            conv /= 10**(PDdict[PD]['gain']/20.)  # PD whitening gain ---- V_demodOut
+            conv /= PDdict[PD]['convGain'] # RF to IF conversion gain ---- V_RF
+            conv /= PDdict[PD]['Z']        # Photodiode RF transimpedance --- I_RF
+            conv /= 0.85                   # Responsivity of InGaAs   ------- W_RF
             conv /= DoFdict[dof]['mconv']*DoFdict[dof]['freq']**-2  # Actuator meters/DAC count
             result = demodStats(fil[PD +'_'+dof+'_mag_I'][:] + 1j*fil[PD +'_'+dof+'_mag_Q'][:])
             mag[kk,ii] = result[0].nominal_value * conv
@@ -302,7 +306,7 @@ def plotData(paramFile, saveFig=False):
             aa.set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
             aa.plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD I')
             aa.plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD Q')
-            aa.grid(linestyle='--', linewidth=0.7, alpha=0.9)
+            aa.grid(True, linestyle='--', linewidth=0.7, alpha=0.9)
             aa.set_thetagrids(thetaticks)#,frac=1.2)
             for kkk, dof in enumerate(DoFdict.keys()):
                 print('Plotting {} in {}'.format(dof, physPDs[iii]))
@@ -319,12 +323,22 @@ def plotData(paramFile, saveFig=False):
     figs.subplots_adjust(hspace=0.5, wspace=0.33)
     aa.axis('off') # Now aa is the last axis.
     # Add the tables.
-    tbl1 = plt.table(cellText=PDtbl, fontsize=14, colLabels=['PD', 'Wht Gain [dB]','$\phi^{\circ}$','Z$\Omega$', r'\frac{V_{\mathrm{IF}}}{V_{\mathrm{RF}}}'],
-         loc='upper left', colWidths=[0.1,0.2,0.2, 0.2,0.2], rowLoc='center', colLoc='center')
-    tbl2 = plt.table(cellText=actTbl, fontsize=14, colLabels=['DoF', 'Actuator','DC gain [m/ct]'],
-         loc='upper left', colWidths=[0.1,0.15,0.15], rowLoc='center', colLoc='center')
-    legend = aa.legend(handles,labels,loc='best',fontsize=14, ncol=2)
-    aa.text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [V/m].\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
+    tbl1 = plt.table(cellText=PDtbl, fontsize=14, colLabels=['PD', 'Wht Gain [dB]','$\phi[^{\circ}]$','Z [$\Omega$]', r'$\frac{V_{\mathrm{IF}}}{V_{\mathrm{RF}}}$'],
+         bbox=(-0.2,0.2,1.5,0.5), colWidths=[0.25,0.4,0.2, 0.2,0.2], rowLoc='center', colLoc='center',cellLoc='center')
+    tbl2 = plt.table(cellText=actTbl, fontsize=18, colLabels=['DoF', 'Actuator','DC gain [m/ct]', '$f_{\\mathrm{exc}}$ [Hz]'],
+         bbox=(-0.2, -0.1, 1.5, 0.2), colWidths=[0.25,0.3,0.4,0.3], rowLoc='center', colLoc='center', cellLoc='center')
+    tbl1.auto_set_font_size(False)
+    tbl2.auto_set_font_size(False)
+    tbl1.scale(yscale=2, xscale=1)
+    tbl2.scale(yscale=1.3, xscale=1)
+    for (row, col), cell in tbl1.get_celld().items():
+        if row==0 or col==0:
+            cell.set_text_props(fontproperties=FontProperties(weight='extra bold'))
+    for (row, col), cell in tbl2.get_celld().items():
+        if row==0 or col==0:
+            cell.set_text_props(fontproperties=FontProperties(weight='extra bold'))
+    legend = aa.legend(handles,labels,loc=(0.5, 0.8),fontsize=12, ncol=2)
+    aa.text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [W/m] (0.85A/W for InGaAs).\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
     if saveFig:
         figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')
         print('Sensing matrix pdf saved to {}'.format(figDir+par['filename']+'sensMat.pdf'))

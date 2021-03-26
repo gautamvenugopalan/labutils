@@ -258,8 +258,20 @@ def plotData(paramFile, saveFig=False):
     DoFdict = par['DoFs']
     PDdict = par['PDs']
     demodFile = dataDir+par['filename']+'_demod'+'.hdf5'
-    n_PDs = len(PDdict.keys())
-    n_DoFs = len(DoFdict.keys())
+    actTbl = []
+    PDtbl = []
+    for kk, vv in par['PDs'].items():
+        try:
+            PDtbl.append([kk, vv['gain'], vv['angle'], vv['Z'], vv['conv gain']])
+        except KeyError as e:
+            print(e)
+            print('The parameter file does not specify all parameters required to convert measured TF to W/m.')
+    for kk, vv in par['DoFs']:
+        try:
+            actTbl.append([kk, vv['act'], vv['mconv']])
+        except KeyError as e:
+            print(e)
+            print('The parameter file does not specify all parameters required to convert measured TF to W/m.')
     physPDs = list(par['PDs'].keys())
     mag = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
     phase = np.zeros([len(PDdict.keys()), len(DoFdict.keys())])
@@ -305,8 +317,13 @@ def plotData(paramFile, saveFig=False):
             pass
         
     figs.subplots_adjust(hspace=0.5, wspace=0.33)
-    aa.axis('off')
-    legend = aa.legend(handles,labels,loc='center',fontsize=20)
+    aa.axis('off') # Now aa is the last axis.
+    # Add the tables.
+    tbl1 = plt.table(cellText=PDtbl, fontsize=14, colLabels=['PD', 'Wht Gain [dB]','$\phi^{\circ}$','Z$\Omega$', r'\frac{V_{\mathrm{IF}}}{V_{\mathrm{RF}}}'],
+         loc='upper left', colWidths=[0.1,0.2,0.2, 0.2,0.2], rowLoc='center', colLoc='center')
+    tbl2 = plt.table(cellText=actTbl, fontsize=14, colLabels=['DoF', 'Actuator','DC gain [m/ct]'],
+         loc='upper left', colWidths=[0.1,0.15,0.15], rowLoc='center', colLoc='center')
+    legend = aa.legend(handles,labels,loc='best',fontsize=14, ncol=2)
     aa.text(2,1.5,'Radial axes are\n$\mathrm{log}_{10}(\mathrm{mag}).$\nUnits are [V/m].\nUncertainties multiplied by 10.',fontsize=14, weight='extra bold')
     if saveFig:
         figs.savefig(figDir+par['filename']+'sensMat.pdf', bbox_inches='tight')

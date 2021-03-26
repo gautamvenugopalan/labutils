@@ -290,7 +290,7 @@ def plotData(paramFile, saveFig=False):
             aa.set_title(physPDs[iii],fontsize=20,fontweight='bold',y=1.15)
             aa.plot([0,-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle='--',alpha=0.4,color='grey',label='PD I')
             aa.plot([0,np.pi/2-np.deg2rad(PDdict[list(PDdict.keys())[iii]]['angle'])],[0,9],linewidth=6,linestyle=':',alpha=0.4,color='grey',label='PD Q')
-            aa.grid(linestyle='--', linewidth=0.7, alpha = 0.9)
+            aa.grid(linestyle='--', linewidth=0.7, alpha=0.9)
             aa.set_thetagrids(thetaticks)#,frac=1.2)
             for kkk, dof in enumerate(DoFdict.keys()):
                 print('Plotting {} in {}'.format(dof, physPDs[iii]))
